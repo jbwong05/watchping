@@ -8,4 +8,6 @@ if(NOT RESOLV_LIBRARY)
   message(FATAL_ERROR "resolv library not found")
 endif()
 
+add_definitions(-D_GNU_SOURCE)
+
 add_subdirectory(src)

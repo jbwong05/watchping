@@ -49,7 +49,6 @@
  *	net_cap_raw enabled.
  */
 
-#define _GNU_SOURCE
 #include "git-version.h"
 #include "iputils_common.h"
 #include "ping.h"
