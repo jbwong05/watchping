@@ -17,7 +17,7 @@
 # define __fpending(fp) ((fp)->_p - (fp)->_bf._base)
 #endif
 
-int close_stream(FILE * stream)
+int fileutils_close_stream(FILE * stream)
 {
 	const int some_pending = (__fpending(stream) != 0);
 	const int prev_fail = (ferror(stream) != 0);
@@ -31,14 +31,14 @@ int close_stream(FILE * stream)
 }
 
 /* Use atexit(); */
-void close_stdout(void)
+void fileutils_close_stdout(void)
 {
-	if (close_stream(stdout) != 0 && !(errno == EPIPE)) {
+	if (fileutils_close_stream(stdout) != 0 && !(errno == EPIPE)) {
 		char const *write_error = _("write error");
 		error(0, errno, "%s", write_error);
 		_exit(EXIT_FAILURE);
 	}
 
-	if (close_stream(stderr) != 0)
+	if (fileutils_close_stream(stderr) != 0)
 		_exit(EXIT_FAILURE);
 }

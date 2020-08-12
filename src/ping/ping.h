@@ -33,6 +33,10 @@
 #include <linux/filter.h>
 #include <resolv.h>
 
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+
 #ifdef HAVE_LIBCAP
 # include <sys/prctl.h>
 # include <sys/capability.h>
@@ -107,7 +111,6 @@ typedef struct socket_st {
 
 struct ping_rts;
 
-int ping4_run(struct ping_rts *rts, int argc, char **argv, struct addrinfo *ai, socket_st *sock);
 int ping4_send_probe(struct ping_rts *rts, socket_st *, void *packet, unsigned packet_size);
 int ping4_receive_error_msg(struct ping_rts *, socket_st *);
 int ping4_parse_reply(struct ping_rts *, socket_st *, struct msghdr *msg, int cc, void *addr, struct timeval *);
@@ -246,6 +249,20 @@ struct ping_rts {
 /* FIXME: global_rts will be removed in future */
 extern struct ping_rts *global_rts;
 
+typedef struct ping_setup_data {
+	struct ping_rts *rts;
+	ping_func_set_st *fset;
+	socket_st *sock4;
+	socket_st *sock6;
+	uint8_t *packet;
+	int packlen;
+	struct addrinfo *result;
+} ping_setup_data;
+
+int ping_initialize(int argc, char **argv, ping_setup_data *setup_data);
+void cleanup(ping_setup_data *setup_data);
+int ping4_run(struct ping_rts *rts, int argc, char **argv, struct addrinfo *ai, socket_st *sock, ping_setup_data *setup_data);
+
 #define	A(bit)	(rts->rcvd_tbl.bitmap[(bit) >> BITMAP_SHIFT])	/* identify word in array */
 #define	B(bit)	(((bitmap_t)1) << ((bit) & ((1 << BITMAP_SHIFT) - 1)))	/* identify bit in word */
 
@@ -339,7 +356,7 @@ static inline void advance_ntransmitted(struct ping_rts *rts)
 		rts->acked = (uint16_t)rts->ntransmitted + 1;
 }
 
-extern void usage(void) __attribute__((noreturn));
+extern void ping_usage(void) __attribute__((noreturn));
 extern void limit_capabilities(struct ping_rts *rts);
 static int enable_capability_raw(void);
 static int disable_capability_raw(void);

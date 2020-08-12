@@ -31,7 +31,7 @@
 /*
  * same as strtol(3) but exit on failure instead of returning crap
  */
-long strtol_or_err(const char *str, const char *errmesg)
+long strutils_strtol_or_err(const char *str, const char *errmesg)
 {
 	long num;
 	char *end = NULL;
@@ -49,7 +49,7 @@ long strtol_or_err(const char *str, const char *errmesg)
 /*
  * same as strtod(3) but exit on failure instead of returning crap
  */
-double strtod_or_err(const char *str, const char *errmesg)
+double strutils_strtod_or_err(const char *str, const char *errmesg)
 {
 	double num;
 	char *end = NULL;
@@ -71,7 +71,7 @@ double strtod_or_err(const char *str, const char *errmesg)
  *
  * Exits on failure like its other _or_err cousins
  */
-double strtod_nol_or_err(char *str, const char *errmesg)
+double strutils_strtod_nol_or_err(char *str, const char *errmesg)
 {
     long double num;
     const char *cp, *radix;

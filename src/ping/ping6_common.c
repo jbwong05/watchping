@@ -118,12 +118,12 @@ int ping6_run(struct ping_rts *rts, int argc, char **argv, struct addrinfo *ai,
 	}
 
 	if (argc > 1) {
-		usage();
+		ping_usage();
 	} else if (argc == 1) {
 		target = *argv;
 	} else {
 		if (rts->ni.query < 0 && rts->ni.subject_type != IPUTILS_NI_ICMP6_SUBJ_FQDN)
-			usage();
+			ping_usage();
 		target = rts->ni.group;
 	}
 

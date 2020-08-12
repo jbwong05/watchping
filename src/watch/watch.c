@@ -31,6 +31,7 @@
 #include "config.h"
 #include "fileutils.h"
 #include "nls.h"
+#include "ping.h"
 #include "strutils.h"
 #include "xalloc.h"
 #include <ctype.h>
@@ -60,6 +61,9 @@
 # define isprint(x) ( (x>=' '&&x<='~') || (x>=0xa0) )
 #endif
 
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
 
 /* Boolean command line options */
 static int flags;
@@ -111,6 +115,7 @@ static int attributes;
 static int fg_col;
 static int bg_col;
 
+static ping_setup_data *pingSetupData = 0;
 
 static void reset_ansi(void)
 {
@@ -253,6 +258,10 @@ static void __attribute__ ((__noreturn__)) do_exit(int status)
 /* signal handler */
 static void die(int notused __attribute__ ((__unused__)))
 {
+	if(pingSetupData) {
+		cleanup(pingSetupData);
+		free(pingSetupData);
+	}
 	do_exit(EXIT_SUCCESS);
 }
 
@@ -447,7 +456,7 @@ static void output_header(char *restrict command, double interval)
 	return;
 }
 
-static int run_command(char *restrict command, char **restrict command_argv)
+static int run_command(ping_setup_data *pingSetupData)
 {
 	FILE *p;
 	int x, y;
@@ -480,12 +489,17 @@ static int run_command(char *restrict command, char **restrict command_argv)
 		dup2(1, 2);			/* stderr should default to stdout */
 
 		if (flags & WATCH_EXEC) {	/* pass command to exec instead of system */
-			if (execvp(command_argv[0], command_argv) == -1) {
+			/*if (execvp(command_argv[0], command_argv) == -1) {
 				xerr(4, _("unable to execute '%s'"),
 				     command_argv[0]);
-			}
+			}*/
+			printf("hello error\n");
 		} else {
-			status = system(command);	/* watch manpage promises sh quoting */
+			//status = system(command);	/* watch manpage promises sh quoting */
+			//while(childRunning) {
+			//	printf("here");
+				status = main_loop(pingSetupData->rts, pingSetupData->fset, pingSetupData->sock4, pingSetupData->packet, pingSetupData->packlen);
+			//}
 			/* propagate command exit status as child exit status */
 			if (!WIFEXITED(status)) {	/* child exits nonzero if command does */
 				exit(EXIT_FAILURE);
@@ -643,10 +657,10 @@ static int run_command(char *restrict command, char **restrict command_argv)
 
 
 	/* harvest child process and get status, propagated from command */
-	if (waitpid(child, &status, 0) < 0)
+	/*if (waitpid(child, &status, 0) < 0)
 		xerr(8, _("waitpid"));
 
-	/* if child process exited in error, beep if option_beep is set */
+	// if child process exited in error, beep if option_beep is set 
 	if ((!WIFEXITED(status) || WEXITSTATUS(status))) {
 		if (flags & WATCH_BEEP)
 			beep();
@@ -658,7 +672,7 @@ static int run_command(char *restrict command, char **restrict command_argv)
 			endwin();
 			exit(8);
 		}
-	}
+	}*/
 	first_screen = 0;
 	refresh();
 	return exit_early;
@@ -679,7 +693,7 @@ int main(int argc, char *argv[])
 	int wcommand_characters = 0;	/* not including final \0 */
 #endif	/* WITH_WATCH8BIT */
 
-	static struct option longopts[] = {
+	/*static struct option longopts[] = {
 		{"color", no_argument, 0, 'c'},
 		{"differences", optional_argument, 0, 'd'},
 		{"help", no_argument, 0, 'h'},
@@ -700,11 +714,11 @@ int main(int argc, char *argv[])
 	setlocale(LC_ALL, "");
 	bindtextdomain(PACKAGE, LOCALEDIR);
 	textdomain(PACKAGE);
-	atexit(close_stdout);
+	atexit(fileutils_close_stdout);
 
 	interval_string = getenv("WATCH_INTERVAL");
 	if(interval_string != NULL)
-		interval = strtod_nol_or_err(interval_string, _("Could not parse interval from WATCH_INTERVAL"));
+		interval = strutils_strtod_nol_or_err(interval_string, _("Could not parse interval from WATCH_INTERVAL"));
 
 	while ((optc =
 		getopt_long(argc, argv, "+bced::ghn:pvtx", longopts, (int *)0))
@@ -734,7 +748,7 @@ int main(int argc, char *argv[])
 			flags |= WATCH_EXEC;
 			break;
 		case 'n':
-			interval = strtod_nol_or_err(optarg, _("failed to parse argument"));
+			interval = strutils_strtod_nol_or_err(optarg, _("failed to parse argument"));
 			break;
 		case 'p':
 			precise_timekeeping = 1;
@@ -759,7 +773,6 @@ int main(int argc, char *argv[])
 	if (optind >= argc)
 		usage(stderr);
 
-	/* save for later */
 	command_argv = &(argv[optind]);
 
 	command = xstrdup(argv[optind++]);
@@ -767,15 +780,18 @@ int main(int argc, char *argv[])
 	for (; optind < argc; optind++) {
 		char *endp;
 		int s = strlen(argv[optind]);
-		/* space and \0 */
+		// space and \0 
 		command = xrealloc(command, command_length + s + 2);
 		endp = command + command_length;
 		*endp = ' ';
 		memcpy(endp + 1, argv[optind], s);
-		/* space then string length */
+		// space then string length 
 		command_length += 1 + s;
 		command[command_length] = '\0';
-	}
+	}*/
+
+	pingSetupData = (ping_setup_data*)malloc(sizeof(ping_setup_data));
+	ping_initialize(argc, argv, pingSetupData);
 
 #ifdef WITH_WATCH8BIT
 	/* convert to wide for printing purposes */
@@ -822,8 +838,11 @@ int main(int argc, char *argv[])
 	if (precise_timekeeping)
 		next_loop = get_time_usec();
 
+	int count = 0;
+	
 	while (1) {
 		if (screen_size_changed) {
+			printf("Screen changed size\n");
 			get_terminal_size();
 			resizeterm(height, width);
 			clear();
@@ -839,9 +858,14 @@ int main(int argc, char *argv[])
 			output_header(command, interval);
 #endif	/* WITH_WATCH8BIT */
 
-		if (run_command(command, command_argv))
-			break;
-
+		//if (run_command(pingSetupData))
+		//	break;
+		refresh();
+		//fflush(stdout);
+		//fflush(stderr);
+		//printf("here\n");
+		main_loop(pingSetupData->rts, pingSetupData->fset, pingSetupData->sock4, pingSetupData->packet, pingSetupData->packlen);
+		//printf("here2\n");
 
 		if (precise_timekeeping) {
 			watch_usec_t cur_time = get_time_usec();

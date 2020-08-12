@@ -9,6 +9,7 @@
 #ifndef PROCPS_NG_C_H
 #define PROCPS_NG_C_H
 
+#include "config.h"
 #include <limits.h>
 #include <stdint.h>
 #include <stdio.h>

@@ -31,6 +31,11 @@
  */
 #include "iputils_common.h"
 #include "ping.h"
+#include <ncurses.h>
+
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
 
 #ifndef HZ
 #define HZ sysconf(_SC_CLK_TCK)
@@ -40,7 +45,7 @@
 static uid_t euid;
 #endif
 
-void usage(void)
+void ping_usage(void)
 {
 	fprintf(stderr,
 		"\nUsage\n"
@@ -222,10 +227,10 @@ void fill(struct ping_rts *rts, char *patp, unsigned char *packet, size_t packet
 				bp[jj + kk] = pat[jj];
 	}
 	if (!rts->opt_quiet) {
-		printf(_("PATTERN: 0x"));
+		printw(_("PATTERN: 0x"));
 		for (jj = 0; jj < ii; ++jj)
-			printf("%02x", bp[jj] & 0xFF);
-		printf("\n");
+			printw("%02x", bp[jj] & 0xFF);
+		printw("\n");
 	}
 
 #ifdef USE_IDN
@@ -288,7 +293,7 @@ void print_timestamp(struct ping_rts *rts)
 	if (rts->opt_ptimeofday) {
 		struct timeval tv;
 		gettimeofday(&tv, NULL);
-		printf("[%lu.%06lu] ",
+		printw("[%lu.%06lu] ",
 		       (unsigned long)tv.tv_sec, (unsigned long)tv.tv_usec);
 	}
 }
@@ -342,7 +347,7 @@ int pinger(struct ping_rts *rts, ping_func_set_st *fset, socket_st *sock)
 	if (rts->opt_outstanding) {
 		if (rts->ntransmitted > 0 && !rcvd_test(rts, rts->ntransmitted)) {
 			print_timestamp(rts);
-			printf(_("no answer yet for icmp_seq=%lu\n"), (rts->ntransmitted % MAX_DUP_CHK));
+			printw(_("no answer yet for icmp_seq=%lu\n"), (rts->ntransmitted % MAX_DUP_CHK));
 			fflush(stdout);
 		}
 	}
@@ -585,14 +590,21 @@ int main_loop(struct ping_rts *rts, ping_func_set_st *fset, socket_st *sock,
 
 	iov.iov_base = (char *)packet;
 
-	for (;;) {
+	printw(_("PING %s (%s) "), rts->hostname, inet_ntoa(rts->whereto.sin_addr));
+	if (rts->device || rts->opt_strictsource)
+		printw(_("from %s %s: "), inet_ntoa(rts->source.sin_addr), rts->device ? rts->device : "");
+	printw(_("%zu(%zu) bytes of data.\n"), rts->datalen, rts->datalen + 8 + rts->optlen + 20);
+	//for (;;) {
 		/* Check exit conditions. */
 		if (rts->exiting)
-			break;
+			//break;
+			return (!rts->nreceived || (rts->deadline && rts->nreceived < rts->npackets));
 		if (rts->npackets && rts->nreceived + rts->nerrors >= rts->npackets)
-			break;
+			//break;
+			return (!rts->nreceived || (rts->deadline && rts->nreceived < rts->npackets));
 		if (rts->deadline && rts->nerrors)
-			break;
+			//break;
+			return (!rts->nreceived || (rts->deadline && rts->nreceived < rts->npackets));
 		/* Check for and do special actions. */
 		if (rts->status_snapshot)
 			status(rts);
@@ -644,7 +656,8 @@ int main_loop(struct ping_rts *rts, ping_func_set_st *fset, socket_st *sock,
 				pset.revents = 0;
 				if (poll(&pset, 1, next) < 1 ||
 				    !(pset.revents & (POLLIN | POLLERR)))
-					continue;
+					//continue;
+					return (!rts->nreceived || (rts->deadline && rts->nreceived < rts->npackets));
 				polling = MSG_DONTWAIT;
 				recv_error = pset.revents & POLLERR;
 			}
@@ -692,9 +705,11 @@ int main_loop(struct ping_rts *rts, ping_func_set_st *fset, socket_st *sock,
 				for (c = CMSG_FIRSTHDR(&msg); c; c = CMSG_NXTHDR(&msg, c)) {
 					if (c->cmsg_level != SOL_SOCKET ||
 					    c->cmsg_type != SO_TIMESTAMP)
-						continue;
+						//continue;
+						return (!rts->nreceived || (rts->deadline && rts->nreceived < rts->npackets));
 					if (c->cmsg_len < CMSG_LEN(sizeof(struct timeval)))
-						continue;
+						//continue;
+						return (!rts->nreceived || (rts->deadline && rts->nreceived < rts->npackets));
 					recv_timep = (struct timeval *)CMSG_DATA(c);
 				}
 #endif
@@ -707,6 +722,7 @@ int main_loop(struct ping_rts *rts, ping_func_set_st *fset, socket_st *sock,
 				}
 
 				not_ours = fset->parse_reply(rts, sock, &msg, cc, addrbuf, recv_timep);
+				finish(rts);
 			}
 
 			/* See? ... someone runs another ping on this host. */
@@ -722,8 +738,8 @@ int main_loop(struct ping_rts *rts, ping_func_set_st *fset, socket_st *sock,
 			 * if nothing is queued, it will receive EAGAIN
 			 * and return to pinger. */
 		}
-	}
-	return finish(rts);
+	//}
+	return (!rts->nreceived || (rts->deadline && rts->nreceived < rts->npackets));
 }
 
 int gather_statistics(struct ping_rts *rts, uint8_t *icmph, int icmplen,
@@ -797,48 +813,48 @@ restamp:
 		uint8_t *cp, *dp;
 
 		print_timestamp(rts);
-		printf(_("%d bytes from %s:"), cc, from);
+		printw(_("%d bytes from %s:"), cc, from);
 
 		if (pr_reply)
 			pr_reply(icmph, cc);
 
 		if (hops >= 0)
-			printf(_(" ttl=%d"), hops);
+			printw(_(" ttl=%d"), hops);
 
 		if ((size_t)cc < rts->datalen + 8) {
-			printf(_(" (truncated)\n"));
+			printw(_(" (truncated)\n"));
 			return 1;
 		}
 		if (rts->timing) {
 			if (triptime >= 100000 - 50)
-				printf(_(" time=%ld ms"), (triptime + 500) / 1000);
+				printw(_(" time=%ld ms"), (triptime + 500) / 1000);
 			else if (triptime >= 10000 - 5)
-				printf(_(" time=%ld.%01ld ms"), (triptime + 50) / 1000,
+				printw(_(" time=%ld.%01ld ms"), (triptime + 50) / 1000,
 				       ((triptime + 50) % 1000) / 100);
 			else if (triptime >= 1000)
-				printf(_(" time=%ld.%02ld ms"), (triptime + 5) / 1000,
+				printw(_(" time=%ld.%02ld ms"), (triptime + 5) / 1000,
 				       ((triptime + 5) % 1000) / 10);
 			else
-				printf(_(" time=%ld.%03ld ms"), triptime / 1000,
+				printw(_(" time=%ld.%03ld ms"), triptime / 1000,
 				       triptime % 1000);
 		}
 		if (dupflag && (!multicast || rts->opt_verbose))
-			printf(_(" (DUP!)"));
+			printw(_(" (DUP!)"));
 		if (csfailed)
-			printf(_(" (BAD CHECKSUM!)"));
+			printw(_(" (BAD CHECKSUM!)"));
 
 		/* check the data */
 		cp = ((unsigned char *)ptr) + sizeof(struct timeval);
 		dp = &rts->outpack[8 + sizeof(struct timeval)];
 		for (i = sizeof(struct timeval); i < rts->datalen; ++i, ++cp, ++dp) {
 			if (*cp != *dp) {
-				printf(_("\nwrong data byte #%zu should be 0x%x but was 0x%x"),
+				printw(_("\nwrong data byte #%zu should be 0x%x but was 0x%x"),
 				       i, *dp, *cp);
 				cp = (unsigned char *)ptr + sizeof(struct timeval);
 				for (i = sizeof(struct timeval); i < rts->datalen; ++i, ++cp) {
 					if ((i % 32) == sizeof(struct timeval))
-						printf("\n#%zu\t", i);
-					printf("%x ", *cp);
+						printw("\n#%zu\t", i);
+					printw("%x ", *cp);
 				}
 				break;
 			}
@@ -873,28 +889,30 @@ int finish(struct ping_rts *rts)
 
 	tvsub(&tv, &rts->start_time);
 
-	putchar('\n');
-	fflush(stdout);
-	printf(_("--- %s ping statistics ---\n"), rts->hostname);
-	printf(_("%ld packets transmitted, "), rts->ntransmitted);
-	printf(_("%ld received"), rts->nreceived);
+	//putchar('\n');
+	printw("\n");
+	//fflush(stdout);
+	printw(_("--- %s ping statistics ---\n"), rts->hostname);
+	printw(_("%ld packets transmitted, "), rts->ntransmitted);
+	printw(_("%ld received"), rts->nreceived);
 	if (rts->nrepeats)
-		printf(_(", +%ld duplicates"), rts->nrepeats);
+		printw(_(", +%ld duplicates"), rts->nrepeats);
 	if (rts->nchecksum)
-		printf(_(", +%ld corrupted"), rts->nchecksum);
+		printw(_(", +%ld corrupted"), rts->nchecksum);
 	if (rts->nerrors)
-		printf(_(", +%ld errors"), rts->nerrors);
+		printw(_(", +%ld errors"), rts->nerrors);
 
 	if (rts->ntransmitted) {
 #ifdef USE_IDN
 		setlocale(LC_ALL, "C");
 #endif
-		printf(_(", %g%% packet loss"),
+		printw(_(", %g%% packet loss"),
 		       (float)((((long long)(rts->ntransmitted - rts->nreceived)) * 100.0) / rts->ntransmitted));
-		printf(_(", time %ldms"), 1000 * tv.tv_sec + (tv.tv_usec + 500) / 1000);
+		printw(_(", time %ldms"), 1000 * tv.tv_sec + (tv.tv_usec + 500) / 1000);
 	}
 
-	putchar('\n');
+	//addch('\n');
+	printw("\n");
 
 	if (rts->nreceived && rts->timing) {
 		double tmdev;
@@ -911,7 +929,7 @@ int finish(struct ping_rts *rts)
 
 		tmdev = llsqrt(tmvar);
 
-		printf(_("rtt min/avg/max/mdev = %ld.%03ld/%lu.%03ld/%ld.%03ld/%ld.%03ld ms"),
+		printw(_("rtt min/avg/max/mdev = %ld.%03ld/%lu.%03ld/%ld.%03ld/%ld.%03ld ms"),
 		       (long)rts->tmin / 1000, (long)rts->tmin % 1000,
 		       (unsigned long)(tmavg / 1000), (long)(tmavg % 1000),
 		       (long)rts->tmax / 1000, (long)rts->tmax % 1000,
@@ -919,17 +937,20 @@ int finish(struct ping_rts *rts)
 		comma = ", ";
 	}
 	if (rts->pipesize > 1) {
-		printf(_("%spipe %d"), comma, rts->pipesize);
+		printw(_("%spipe %d"), comma, rts->pipesize);
 		comma = ", ";
 	}
 
 	if (rts->nreceived && (!rts->interval || rts->opt_flood || rts->opt_adaptive) && rts->ntransmitted > 1) {
 		int ipg = (1000000 * (long long)tv.tv_sec + tv.tv_usec) / (rts->ntransmitted - 1);
 
-		printf(_("%sipg/ewma %d.%03d/%d.%03d ms"),
+		printw(_("%sipg/ewma %d.%03d/%d.%03d ms"),
 		       comma, ipg / 1000, ipg % 1000, rts->rtt / 8000, (rts->rtt / 8) % 1000);
 	}
-	putchar('\n');
+	//addch('\n');
+	printw("\n");
+	//addch('\n');
+	printw("\n");
 	return (!rts->nreceived || (rts->deadline && rts->nreceived < rts->npackets));
 }
 
@@ -943,18 +964,18 @@ void status(struct ping_rts *rts)
 	if (rts->ntransmitted)
 		loss = (((long long)(rts->ntransmitted - rts->nreceived)) * 100) / rts->ntransmitted;
 
-	fprintf(stderr, "\r");
-	fprintf(stderr, _("%ld/%ld packets, %d%% loss"), rts->nreceived, rts->ntransmitted, loss);
+	printw("\r");
+	printw(_("%ld/%ld packets, %d%% loss"), rts->nreceived, rts->ntransmitted, loss);
 
 	if (rts->nreceived && rts->timing) {
 		tavg = rts->tsum / (rts->nreceived + rts->nrepeats);
 
-		fprintf(stderr, _(", min/avg/ewma/max = %ld.%03ld/%lu.%03ld/%d.%03d/%ld.%03ld ms"),
+		printw(_(", min/avg/ewma/max = %ld.%03ld/%lu.%03ld/%d.%03d/%ld.%03ld ms"),
 			(long)rts->tmin / 1000, (long)rts->tmin % 1000,
 			tavg / 1000, tavg % 1000,
 			rts->rtt / 8000, (rts->rtt / 8) % 1000, (long)rts->tmax / 1000, (long)rts->tmax % 1000);
 	}
-	fprintf(stderr, "\n");
+	printw("\n");
 }
 
 inline int is_ours(struct ping_rts *rts, socket_st * sock, uint16_t id)
