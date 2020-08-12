@@ -855,7 +855,7 @@ int main(int argc, char *argv[])
 #ifdef WITH_WATCH8BIT
 			output_header(wcommand, wcommand_characters, interval);
 #else
-			output_header(command, interval);
+			output_header("ping", interval);
 #endif	/* WITH_WATCH8BIT */
 
 		//if (run_command(pingSetupData))

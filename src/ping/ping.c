@@ -271,12 +271,15 @@ int ping_initialize(int argc, char **argv, ping_setup_data* setup_data) {
 	int ret_val;
 	int ch;
 	socket_st *sock4 = (socket_st *)malloc(sizeof(socket_st));
+	memset(sock4, 0, sizeof(socket_st));
 	sock4->fd = -1;
 	socket_st *sock6 = (socket_st *)malloc(sizeof(socket_st));
+	memset(sock6, 0, sizeof(socket_st));
 	sock6->fd = -1;
 	char *target;
 	char *outpack_fill = NULL;
 	struct ping_rts *rts = (struct ping_rts *)malloc(sizeof(struct ping_rts));
+	memset(rts, 0, sizeof(struct ping_rts));
 	rts->interval = 1000;
 	rts->preload = 1;
 	rts->lingertime = MAXWAIT * 1000;
