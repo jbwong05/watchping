@@ -457,11 +457,11 @@ static void output_header(char *restrict command, double interval)
 	return;
 }
 
-int start_watch(struct ping_setup_data *pingSetupData) {
+int start_watch(struct ping_setup_data *pingSetupData, char *command) {
 	int optc;
 	double interval = 2;
 	char *interval_string;
-	char *command;
+	//char *command;
 	char **command_argv;
 	int command_length = 0;	/* not including final \0 */
 	watch_usec_t next_loop;	/* next loop time in us, used for precise time
@@ -484,7 +484,7 @@ int start_watch(struct ping_setup_data *pingSetupData) {
 		{"no-title", no_argument, 0, 't'},
 		{"version", no_argument, 0, 'v'},
 		{0, 0, 0, 0}
-	};
+	};*/
 
 #ifdef HAVE_PROGRAM_INVOCATION_NAME
 	program_invocation_name = program_invocation_short_name;
@@ -498,7 +498,7 @@ int start_watch(struct ping_setup_data *pingSetupData) {
 	if(interval_string != NULL)
 		interval = strutils_strtod_nol_or_err(interval_string, _("Could not parse interval from WATCH_INTERVAL"));
 
-	while ((optc =
+	/*while ((optc =
 		getopt_long(argc, argv, "+bced::ghn:pvtx", longopts, (int *)0))
 	       != EOF) {
 		switch (optc) {
@@ -568,23 +568,6 @@ int start_watch(struct ping_setup_data *pingSetupData) {
 		command[command_length] = '\0';
 	}*/
 
-#ifdef WITH_WATCH8BIT
-	/* convert to wide for printing purposes */
-	/*mbstowcs(NULL, NULL, 0); */
-	wcommand_characters = mbstowcs(NULL, command, 0);
-	if (wcommand_characters < 0) {
-		fprintf(stderr, _("unicode handling error\n"));
-		exit(EXIT_FAILURE);
-	}
-	wcommand =
-	    (wchar_t *) malloc((wcommand_characters + 1) * sizeof(wcommand));
-	if (wcommand == NULL) {
-		fprintf(stderr, _("unicode handling error (malloc)\n"));
-		exit(EXIT_FAILURE);
-	}
-	mbstowcs(wcommand, command, wcommand_characters + 1);
-#endif	/* WITH_WATCH8BIT */
-
 	get_terminal_size();
 
 	/* Catch keyboard interrupts so we can put tty back in a sane
@@ -630,7 +613,7 @@ int start_watch(struct ping_setup_data *pingSetupData) {
 #ifdef WITH_WATCH8BIT
 			output_header(wcommand, wcommand_characters, interval);
 #else
-			output_header("ping", interval);
+			output_header(command, interval);
 #endif	/* WITH_WATCH8BIT */
 
 		print_ping_header(pingSetupData->ipv4, pingSetupData->rts);

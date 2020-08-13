@@ -487,7 +487,7 @@ int ping_initialize(int argc, char **argv, ping_setup_data* setup_data) {
 			rts->opt_verbose = 1;
 			break;
 		case 'V':
-			printf(IPUTILS_VERSION("ping"));
+			printf(IPUTILS_VERSION("watchping"));
 			exit(0);
 		case 'w':
 			rts->deadline = strtol_or_err(optarg, _("invalid argument"), 0, INT_MAX);
