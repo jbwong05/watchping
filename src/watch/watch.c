@@ -66,188 +66,11 @@
 #define _GNU_SOURCE
 #endif
 
-/* Boolean command line options */
-static int flags;
-#define WATCH_DIFF	(1 << 1)
-#define WATCH_CUMUL	(1 << 2)
-#define WATCH_EXEC	(1 << 3)
-#define WATCH_BEEP	(1 << 4)
-#define WATCH_COLOR	(1 << 5)
-#define WATCH_ERREXIT	(1 << 6)
-#define WATCH_CHGEXIT	(1 << 7)
-
 static int curses_started = 0;
 static long height = 24, width = 80;
 static int screen_size_changed = 0;
-static int first_screen = 1;
-static int show_title = 2;	/* number of lines used, 2 or 0 */
-static int precise_timekeeping = 0;
-
-#define min(x,y) ((x) > (y) ? (y) : (x))
-#define MAX_ANSIBUF 100
-
-static void __attribute__ ((__noreturn__))
-    usage(FILE * out)
-{
-	fputs(USAGE_HEADER, out);
-	fprintf(out,
-              _(" %s [options] command\n"), program_invocation_short_name);
-	fputs(USAGE_OPTIONS, out);
-	fputs(_("  -b, --beep             beep if command has a non-zero exit\n"), out);
-	fputs(_("  -c, --color            interpret ANSI color and style sequences\n"), out);
-	fputs(_("  -d, --differences[=<permanent>]\n"
-                "                         highlight changes between updates\n"), out);
-	fputs(_("  -e, --errexit          exit if command has a non-zero exit\n"), out);
-	fputs(_("  -g, --chgexit          exit when output from command changes\n"), out);
-	fputs(_("  -n, --interval <secs>  seconds to wait between updates\n"), out);
-	fputs(_("  -p, --precise          attempt run command in precise intervals\n"), out);
-	fputs(_("  -t, --no-title         turn off header\n"), out);
-	fputs(_("  -x, --exec             pass command to exec instead of \"sh -c\"\n"), out);
-	fputs(USAGE_SEPARATOR, out);
-	fputs(USAGE_HELP, out);
-	fputs(_(" -v, --version  output version information and exit\n"), out);
-	fprintf(out, USAGE_MAN_TAIL("watch(1)"));
-
-	exit(out == stderr ? EXIT_FAILURE : EXIT_SUCCESS);
-}
-
-static int nr_of_colors;
-static int attributes;
-static int fg_col;
-static int bg_col;
 
 static ping_setup_data *pingSetupData = 0;
-
-static void reset_ansi(void)
-{
-	attributes = A_NORMAL;
-	fg_col = 0;
-	bg_col = 0;
-}
-
-static void init_ansi_colors(void)
-{
-	short ncurses_colors[] = {
-		-1, COLOR_BLACK, COLOR_RED, COLOR_GREEN, COLOR_YELLOW,
-		COLOR_BLUE, COLOR_MAGENTA, COLOR_CYAN, COLOR_WHITE
-	};
-
-	nr_of_colors = sizeof(ncurses_colors) / sizeof(short);
-
-	for (bg_col = 0; bg_col < nr_of_colors; bg_col++)
-		for (fg_col = 0; fg_col < nr_of_colors; fg_col++)
-			init_pair(bg_col * nr_of_colors + fg_col + 1, ncurses_colors[fg_col], ncurses_colors[bg_col]);
-	reset_ansi();
-}
-
-
-static int set_ansi_attribute(const int attrib)
-{
-	switch (attrib) {
-	case -1:	/* restore last settings */
-		break;
-	case 0:		/* restore default settings */
-		reset_ansi();
-		break;
-	case 1:		/* set bold / increased intensity */
-		attributes |= A_BOLD;
-		break;
-	case 2:		/* set decreased intensity (if supported) */
-		attributes |= A_DIM;
-		break;
-#ifdef A_ITALIC
-	case 3:		/* set italic (if supported) */
-		attributes |= A_ITALIC;
-		break;
-#endif
-	case 4:		/* set underline */
-		attributes |= A_UNDERLINE;
-		break;
-	case 5:		/* set blinking */
-		attributes |= A_BLINK;
-		break;
-	case 7:		/* set inversed */
-		attributes |= A_REVERSE;
-		break;
-	case 21:	/* unset bold / increased intensity */
-		attributes &= ~A_BOLD;
-		break;
-	case 22:	/* unset bold / any intensity modifier */
-		attributes &= ~(A_BOLD | A_DIM);
-		break;
-#ifdef A_ITALIC
-	case 23:	/* unset italic */
-		attributes &= ~A_ITALIC;
-		break;
-#endif
-	case 24:	/* unset underline */
-		attributes &= ~A_UNDERLINE;
-		break;
-	case 25:	/* unset blinking */
-		attributes &= ~A_BLINK;
-		break;
-	case 27:	/* unset inversed */
-		attributes &= ~A_REVERSE;
-		break;
-    case 39:
-        fg_col = 0;
-        break;
-    case 49:
-        bg_col = 0;
-        break;
-	default:
-		if (attrib >= 30 && attrib <= 37) {	/* set foreground color */
-			fg_col = attrib - 30 + 1;
-		} else if (attrib >= 40 && attrib <= 47) { /* set background color */
-			bg_col = attrib - 40 + 1;
-		} else {
-			return 0; /* Not understood */
-		}
-	}
-	attrset(attributes | COLOR_PAIR(bg_col * nr_of_colors + fg_col + 1));
-    return 1;
-}
-
-static void process_ansi(FILE * fp)
-{
-	int i, c;
-	char buf[MAX_ANSIBUF];
-	char *numstart, *endptr;
-
-	c = getc(fp);
-	if (c != '[') {
-		ungetc(c, fp);
-		return;
-	}
-	for (i = 0; i < MAX_ANSIBUF; i++) {
-		c = getc(fp);
-		/* COLOUR SEQUENCE ENDS in 'm' */
-		if (c == 'm') {
-			buf[i] = '\0';
-			break;
-		}
-		if ((c < '0' || c > '9') && c != ';') {
-			return;
-		}
-		buf[i] = (char)c;
-	}
-	/*
-	 * buf now contains a semicolon-separated list of decimal integers,
-	 * each indicating an attribute to apply.
-	 * For example, buf might contain "0;1;31", derived from the color
-	 * escape sequence "<ESC>[0;1;31m". There can be 1 or more
-	 * attributes to apply, but typically there are between 1 and 3.
-	 */
-
-    /* Special case of <ESC>[m */
-    if (buf[0] == '\0')
-        set_ansi_attribute(0);
-
-    for (endptr = numstart = buf; *endptr != '\0'; numstart = endptr + 1) {
-        if (!set_ansi_attribute(strtol(numstart, &endptr, 10)))
-            break;
-    }
-}
 
 static void __attribute__ ((__noreturn__)) do_exit(int status)
 {
@@ -456,10 +279,9 @@ static void output_header(char *restrict command, double interval)
 	return;
 }
 
-int start_watch(struct ping_setup_data *pingSetupDataPtr, char *command) {
+int start_watch(struct ping_setup_data *pingSetupDataPtr, watch_options *watch_args) {
 	pingSetupData = pingSetupDataPtr;
 	int optc;
-	double interval = 2;
 	char *interval_string;
 	char **command_argv;
 	int command_length = 0;	/* not including final \0 */
@@ -469,21 +291,6 @@ int start_watch(struct ping_setup_data *pingSetupDataPtr, char *command) {
 	wchar_t *wcommand = NULL;
 	int wcommand_characters = 0;	/* not including final \0 */
 #endif	/* WITH_WATCH8BIT */
-
-	/*static struct option longopts[] = {
-		{"color", no_argument, 0, 'c'},
-		{"differences", optional_argument, 0, 'd'},
-		{"help", no_argument, 0, 'h'},
-		{"interval", required_argument, 0, 'n'},
-		{"beep", no_argument, 0, 'b'},
-		{"errexit", no_argument, 0, 'e'},
-		{"chgexit", no_argument, 0, 'g'},
-		{"exec", no_argument, 0, 'x'},
-		{"precise", no_argument, 0, 'p'},
-		{"no-title", no_argument, 0, 't'},
-		{"version", no_argument, 0, 'v'},
-		{0, 0, 0, 0}
-	};*/
 
 #ifdef HAVE_PROGRAM_INVOCATION_NAME
 	program_invocation_name = program_invocation_short_name;
@@ -495,77 +302,12 @@ int start_watch(struct ping_setup_data *pingSetupDataPtr, char *command) {
 
 	interval_string = getenv("WATCH_INTERVAL");
 	if(interval_string != NULL)
-		interval = strutils_strtod_nol_or_err(interval_string, _("Could not parse interval from WATCH_INTERVAL"));
+		watch_args->interval = strutils_strtod_nol_or_err(interval_string, _("Could not parse interval from WATCH_INTERVAL"));
 
-	/*while ((optc =
-		getopt_long(argc, argv, "+bced::ghn:pvtx", longopts, (int *)0))
-	       != EOF) {
-		switch (optc) {
-		case 'b':
-			flags |= WATCH_BEEP;
-			break;
-		case 'c':
-			flags |= WATCH_COLOR;
-			break;
-		case 'd':
-			flags |= WATCH_DIFF;
-			if (optarg)
-				flags |= WATCH_CUMUL;
-			break;
-		case 'e':
-			flags |= WATCH_ERREXIT;
-			break;
-		case 'g':
-			flags |= WATCH_CHGEXIT;
-			break;
-		case 't':
-			show_title = 0;
-			break;
-		case 'x':
-			flags |= WATCH_EXEC;
-			break;
-		case 'n':
-			interval = strutils_strtod_nol_or_err(optarg, _("failed to parse argument"));
-			break;
-		case 'p':
-			precise_timekeeping = 1;
-			break;
-		case 'h':
-			usage(stdout);
-			break;
-		case 'v':
-			printf(PROCPS_NG_VERSION);
-			return EXIT_SUCCESS;
-		default:
-			usage(stderr);
-			break;
-		}
-	}
-
-	if (interval < 0.1)
-		interval = 0.1;
-	if (interval > UINT_MAX)
-		interval = UINT_MAX;
-
-	if (optind >= argc)
-		usage(stderr);
-
-	command_argv = &(argv[optind]);
-
-	command = xstrdup(argv[optind++]);
-	command_length = strlen(command);
-	for (; optind < argc; optind++) {
-		char *endp;
-		int s = strlen(argv[optind]);
-		// space and \0 
-		command = xrealloc(command, command_length + s + 2);
-		endp = command + command_length;
-		*endp = ' ';
-		memcpy(endp + 1, argv[optind], s);
-		// space then string length 
-		command_length += 1 + s;
-		command[command_length] = '\0';
-	}*/
+	if (watch_args->interval < 0.1)
+		watch_args->interval = 0.1;
+	if (watch_args->interval > UINT_MAX)
+		watch_args->interval = UINT_MAX;
 
 	get_terminal_size();
 
@@ -579,20 +321,11 @@ int start_watch(struct ping_setup_data *pingSetupDataPtr, char *command) {
 	/* Set up tty for curses use.  */
 	curses_started = 1;
 	initscr();
-	if (flags & WATCH_COLOR) {
-		if (has_colors()) {
-			start_color();
-			use_default_colors();
-			init_ansi_colors();
-		} else {
-			flags &= ~WATCH_COLOR;
-		}
-	}
 	nonl();
 	noecho();
 	cbreak();
 
-	if (precise_timekeeping)
+	if (watch_args->precise_timekeeping)
 		next_loop = get_time_usec();
 
 	int count = 0;
@@ -605,14 +338,13 @@ int start_watch(struct ping_setup_data *pingSetupDataPtr, char *command) {
 			clear();
 			/* redrawwin(stdscr); */
 			screen_size_changed = 0;
-			first_screen = 1;
 		}
 
-		if (show_title)
+		if (watch_args->show_title)
 #ifdef WITH_WATCH8BIT
 			output_header(wcommand, wcommand_characters, interval);
 #else
-			output_header(command, interval);
+			output_header(watch_args->command, watch_args->interval);
 #endif	/* WITH_WATCH8BIT */
 
 		print_ping_header(pingSetupData->ipv4, pingSetupData->rts);
@@ -625,16 +357,16 @@ int start_watch(struct ping_setup_data *pingSetupDataPtr, char *command) {
 
 		refresh();
 
-		if (precise_timekeeping) {
+		if (watch_args->precise_timekeeping) {
 			watch_usec_t cur_time = get_time_usec();
-			next_loop += USECS_PER_SEC * interval;
+			next_loop += USECS_PER_SEC * watch_args->interval;
 			if (cur_time < next_loop)
 				usleep(next_loop - cur_time);
 		} else
-			if (interval < UINT_MAX / USECS_PER_SEC)
-				usleep(interval * USECS_PER_SEC);
+			if (watch_args->interval < UINT_MAX / USECS_PER_SEC)
+				usleep(watch_args->interval * USECS_PER_SEC);
 			else
-				sleep(interval);
+				sleep(watch_args->interval);
 	}
 
 	endwin();

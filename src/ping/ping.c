@@ -53,7 +53,6 @@
 #define _GNU_SOURCE
 #endif
 
-#include "git-version.h"
 #include "iputils_common.h"
 #include "ping.h"
 #include <ncurses.h>

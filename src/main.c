@@ -1,15 +1,13 @@
+#include <getopt.h>
 #include "ping.h"
+#include "usage.h"
 #include "watch.h"
 
 #define VERSION 1.0
-#define COMMAND_BUFFER_SIZE 1024
+#define DEFAULT_INTERVAL 2
 
-void parse_args(int argc, char *argv[], char (*command)[COMMAND_BUFFER_SIZE], 
-        struct addrinfo *hints, struct ping_rts *rts, char **outpack_fill, char **target) {
-    int ch;
-    *outpack_fill = NULL;
-
-	hints->ai_family = AF_UNSPEC;
+void setup_structs(struct addrinfo *hints, struct ping_rts *rts) {
+    hints->ai_family = AF_UNSPEC;
 	hints->ai_protocol = IPPROTO_UDP;
 	hints->ai_socktype = SOCK_DGRAM;
 	hints->ai_flags = getaddrinfo_flags;
@@ -31,14 +29,21 @@ void parse_args(int argc, char *argv[], char (*command)[COMMAND_BUFFER_SIZE],
 	rts->source6.sin6_family = AF_INET6;
 	rts->ni.query = -1;
 	rts->ni.subject_type = -1;
+}
+
+void parse_args(int argc, char *argv[], struct watch_options *watch_args, struct addrinfo *hints, struct ping_rts *rts, 
+        char **outpack_fill, char **target) {
+
+    int ch;
+    *outpack_fill = NULL;
 
     int currentIndex = 1;
-    strcpy(*command, "ping\0");
+    strcpy(watch_args->command, "ping\0");
     char *currentArg;
     while(currentIndex < argc) {
         currentArg = argv[currentIndex];
-        strncat(*command, " ", 1);
-        strncat(*command, currentArg, strlen(currentArg));
+        strncat(watch_args->command, " ", 1);
+        strncat(watch_args->command, currentArg, strlen(currentArg));
         currentIndex++;
     }
 
@@ -49,7 +54,7 @@ void parse_args(int argc, char *argv[], char (*command)[COMMAND_BUFFER_SIZE],
 		hints->ai_family = AF_INET6;
 
 	/* Parse command line options */
-	while ((ch = getopt(argc, argv, "h?" "4bRT:" "6F:N:" "aABc:dDfi:I:l:Lm:M:nOp:qQ:rs:S:t:UvVw:W:")) != EOF) {
+	while ((ch = getopt(argc, argv, "h?" "4bRT:" "6F:N:" "aABc:dDfHi:I:l:Lm:M:nOp:PqQ:rs:S:t:UvVw:W:")) != EOF) {
 		switch(ch) {
 		/* IPv4 specific options */
 		case '4':
@@ -90,7 +95,7 @@ void parse_args(int argc, char *argv[], char (*command)[COMMAND_BUFFER_SIZE],
 			break;
 		case 'N':
 			if (niquery_option_handler(&(rts->ni), optarg) < 0)
-				ping_usage();
+				print_usage();
 			hints->ai_socktype = SOCK_RAW;
 			break;
 		/* Common options */
@@ -112,16 +117,13 @@ void parse_args(int argc, char *argv[], char (*command)[COMMAND_BUFFER_SIZE],
 		case 'D':
 			rts->opt_ptimeofday = 1;
 			break;
+        case 'H':
+            watch_args->show_title = 0;
+            break;
 		case 'i':
-		{
-			double optval;
-
-			optval = ping_strtod(optarg, _("bad timing interval"));
-			if (isgreater(optval, (double)INT_MAX / 1000))
+            watch_args->interval = ping_strtod(optarg, _("bad timing interval"));
+			if (isgreater(watch_args->interval, (double)INT_MAX / 1000))
 				error(2, 0, _("bad timing interval: %s"), optarg);
-			rts->interval = (int)(optval * 1000);
-			rts->opt_interval = 1;
-		}
 			break;
 		case 'I':
 			/* IPv6 */
@@ -189,6 +191,9 @@ void parse_args(int argc, char *argv[], char (*command)[COMMAND_BUFFER_SIZE],
 			if (!*outpack_fill)
 				error(2, errno, _("memory allocation failed"));
 			break;
+        case 'P':
+            watch_args->precise_timekeeping = 1;
+            break;
 		case 'q':
 			rts->opt_quiet = 1;
 			break;
@@ -233,7 +238,7 @@ void parse_args(int argc, char *argv[], char (*command)[COMMAND_BUFFER_SIZE],
 		}
 			break;
 		default:
-			ping_usage();
+			print_usage();
 			break;
 		}
 	}
@@ -259,16 +264,22 @@ void parse_args(int argc, char *argv[], char (*command)[COMMAND_BUFFER_SIZE],
 
 int main(int argc, char *argv[]) {
     struct ping_rts *rts = (struct ping_rts *)calloc(1, sizeof(struct ping_rts));
-    struct addrinfo * hints = (struct addrinfo *)calloc(1, sizeof(struct addrinfo));
+    struct addrinfo *hints = (struct addrinfo *)calloc(1, sizeof(struct addrinfo));
+    setup_structs(hints, rts);
+
     char command[COMMAND_BUFFER_SIZE];
     char *outpack_fill;
     char *target;
-    parse_args(argc, argv, &command, hints, rts, &outpack_fill, &target);
+    struct watch_options watch_args;
+    watch_args.interval = DEFAULT_INTERVAL;
+    watch_args.show_title = 1;
+    watch_args.precise_timekeeping = 0;
+    parse_args(argc, argv, &watch_args, hints, rts, &outpack_fill, &target);
 
     struct ping_setup_data pingSetupData;
     ping_initialize(&pingSetupData, hints, rts, target);
 
     free(hints);
 
-    return start_watch(&pingSetupData, command);
+    return start_watch(&pingSetupData, &watch_args);
 }
