@@ -461,7 +461,6 @@ int start_watch(struct ping_setup_data *pingSetupData, char *command) {
 	int optc;
 	double interval = 2;
 	char *interval_string;
-	//char *command;
 	char **command_argv;
 	int command_length = 0;	/* not including final \0 */
 	watch_usec_t next_loop;	/* next loop time in us, used for precise time

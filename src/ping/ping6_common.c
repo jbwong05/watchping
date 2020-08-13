@@ -98,12 +98,10 @@ unsigned int if_name2index(const char *ifname)
 }
 
 /* return >= 0: exit with this code, < 0: go on to next addrinfo result */
-int ping6_run(struct ping_rts *rts, int argc, char **argv, struct addrinfo *ai,
-	      struct socket_st *sock, ping_setup_data *setup_data)
-{
+int ping6_run(struct ping_rts *rts, struct addrinfo *ai, struct socket_st *sock, 
+		ping_setup_data *setup_data, char *target) {
 	int hold, packlen;
 	unsigned char *packet;
-	char *target;
 	struct icmp6_filter filter;
 	int err;
 	static uint32_t scope_id = 0;
@@ -116,16 +114,6 @@ int ping6_run(struct ping_rts *rts, int argc, char **argv, struct addrinfo *ai,
 			rts->ni.subject_len = sizeof(rts->whereto6.sin6_addr);
 			rts->ni.subject_type = IPUTILS_NI_ICMP6_SUBJ_IPV6;
 		}
-	}
-
-	if (argc > 1) {
-		ping_usage();
-	} else if (argc == 1) {
-		target = *argv;
-	} else {
-		if (rts->ni.query < 0 && rts->ni.subject_type != IPUTILS_NI_ICMP6_SUBJ_FQDN)
-			ping_usage();
-		target = rts->ni.group;
 	}
 
 	memcpy(&rts->whereto6, ai->ai_addr, sizeof(rts->whereto6));

@@ -262,10 +262,14 @@ typedef struct ping_setup_data {
 } ping_setup_data;
 
 void parse_ping_args(int argc, char **argv, struct addrinfo *hints, struct ping_rts *rts, char **outpack_fill, char **target);
-int ping_initialize(int argc, char **argv, ping_setup_data* setup_data);
+int ping_initialize(ping_setup_data* setup_data, struct addrinfo *hints, struct ping_rts *rts, char *target);
 void print_ping_header(bool ipv4, struct ping_rts *rts);
 void cleanup(ping_setup_data *setup_data);
-int ping4_run(struct ping_rts *rts, int argc, char **argv, struct addrinfo *ai, socket_st *sock, ping_setup_data *setup_data);
+int ping4_run(struct ping_rts *rts, struct addrinfo *ai, socket_st *sock, 
+	ping_setup_data *setup_data, char *target);
+int parseflow(char *str);
+double ping_strtod(const char *str, const char *err_msg);
+int parsetos(char *str);
 
 #define	A(bit)	(rts->rcvd_tbl.bitmap[(bit) >> BITMAP_SHIFT])	/* identify word in array */
 #define	B(bit)	(((bitmap_t)1) << ((bit) & ((1 << BITMAP_SHIFT) - 1)))	/* identify bit in word */
@@ -402,8 +406,8 @@ void fill(struct ping_rts *rts, char *patp, unsigned char *packet, size_t packet
 
 /* IPv6 */
 
-int ping6_run(struct ping_rts *rts, int argc, char **argv, struct addrinfo *ai,
-	      socket_st *sock, ping_setup_data *setup_data);
+int ping6_run(struct ping_rts *rts, struct addrinfo *ai, socket_st *sock, 
+	ping_setup_data *setup_data, char *target);
 void ping6_usage(unsigned from_ping);
 
 int ping6_send_probe(struct ping_rts *rts, socket_st *sockets, void *packet, unsigned packet_size);
