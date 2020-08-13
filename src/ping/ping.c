@@ -581,11 +581,13 @@ int ping_initialize(int argc, char **argv, ping_setup_data* setup_data) {
 		}
 		switch (ai->ai_family) {
 		case AF_INET:
+			setup_data->ipv4 = true;
 			ret_val = ping4_run(rts, argc, argv, ai, sock4, setup_data);
 			break;
 		case AF_INET6:
 			// TODO: adapt ipv4 changes to ipv6
-			ret_val = ping6_run(rts, argc, argv, ai, sock6);
+			setup_data->ipv4 = false;
+			ret_val = ping6_run(rts, argc, argv, ai, sock6, setup_data);
 			break;
 		default:
 			error(2, 0, _("unknown protocol family: %d"), ai->ai_family);
@@ -944,6 +946,28 @@ int ping4_run(struct ping_rts *rts, int argc, char **argv, struct addrinfo *ai,
 	setup_data->packlen = packlen;
 
 	return 0;
+}
+
+void print_ping_header(bool ipv4, struct ping_rts *rts) {
+	if(ipv4) {
+		printw(_("PING %s (%s) "), rts->hostname, inet_ntoa(rts->whereto.sin_addr));
+		if (rts->device || rts->opt_strictsource)
+			printw(_("from %s %s: "), inet_ntoa(rts->source.sin_addr), rts->device ? rts->device : "");
+		printw(_("%zu(%zu) bytes of data.\n"), rts->datalen, rts->datalen + 8 + rts->optlen + 20);
+	
+	} else {
+		printw(_("PING %s(%s) "), rts->hostname, pr_addr(rts, &rts->whereto6, sizeof rts->whereto6));
+		if (rts->flowlabel)
+			printw(_(", flow 0x%05x, "), (unsigned)ntohl(rts->flowlabel));
+		if (rts->device || rts->opt_strictsource) {
+			int saved_opt_numeric = rts->opt_numeric;
+
+			rts->opt_numeric = 1;
+			printw(_("from %s %s: "), pr_addr(rts, &rts->source6, sizeof rts->source6), rts->device ? rts->device : "");
+			rts->opt_numeric = saved_opt_numeric;
+		}
+		printw(_("%zu data bytes\n"), rts->datalen);
+	}
 }
 
 void cleanup(ping_setup_data *setup_data) {

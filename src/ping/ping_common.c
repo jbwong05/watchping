@@ -590,11 +590,6 @@ int main_ping(struct ping_rts *rts, ping_func_set_st *fset, socket_st *sock,
 
 	iov.iov_base = (char *)packet;
 
-	printw(_("PING %s (%s) "), rts->hostname, inet_ntoa(rts->whereto.sin_addr));
-	if (rts->device || rts->opt_strictsource)
-		printw(_("from %s %s: "), inet_ntoa(rts->source.sin_addr), rts->device ? rts->device : "");
-	printw(_("%zu(%zu) bytes of data.\n"), rts->datalen, rts->datalen + 8 + rts->optlen + 20);
-
 	/* Check exit conditions. */
 	if (rts->exiting)
 		return (!rts->nreceived || (rts->deadline && rts->nreceived < rts->npackets));
@@ -699,9 +694,9 @@ int main_ping(struct ping_rts *rts, ping_func_set_st *fset, socket_st *sock,
 
 			for (c = CMSG_FIRSTHDR(&msg); c; c = CMSG_NXTHDR(&msg, c)) {
 				if (c->cmsg_level != SOL_SOCKET || c->cmsg_type != SO_TIMESTAMP)
-					return (!rts->nreceived || (rts->deadline && rts->nreceived < rts->npackets));
+					continue;
 				if (c->cmsg_len < CMSG_LEN(sizeof(struct timeval)))
-					return (!rts->nreceived || (rts->deadline && rts->nreceived < rts->npackets));
+					continue;
 				recv_timep = (struct timeval *)CMSG_DATA(c);
 			}
 #endif
@@ -714,7 +709,6 @@ int main_ping(struct ping_rts *rts, ping_func_set_st *fset, socket_st *sock,
 			}
 
 			not_ours = fset->parse_reply(rts, sock, &msg, cc, addrbuf, recv_timep);
-			finish(rts);
 		}
 
 		/* See? ... someone runs another ping on this host. */
@@ -730,7 +724,7 @@ int main_ping(struct ping_rts *rts, ping_func_set_st *fset, socket_st *sock,
 		 * if nothing is queued, it will receive EAGAIN
 		 * and return to pinger. */
 	}
-
+	finish(rts);
 	return (!rts->nreceived || (rts->deadline && rts->nreceived < rts->npackets));
 }
 
@@ -881,9 +875,7 @@ int finish(struct ping_rts *rts)
 
 	tvsub(&tv, &rts->start_time);
 
-	//putchar('\n');
 	printw("\n");
-	//fflush(stdout);
 	printw(_("--- %s ping statistics ---\n"), rts->hostname);
 	printw(_("%ld packets transmitted, "), rts->ntransmitted);
 	printw(_("%ld received"), rts->nreceived);

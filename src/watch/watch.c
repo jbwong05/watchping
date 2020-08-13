@@ -633,7 +633,14 @@ int start_watch(struct ping_setup_data *pingSetupData) {
 			output_header("ping", interval);
 #endif	/* WITH_WATCH8BIT */
 
-		main_ping(pingSetupData->rts, pingSetupData->fset, pingSetupData->sock4, pingSetupData->packet, pingSetupData->packlen);
+		print_ping_header(pingSetupData->ipv4, pingSetupData->rts);
+
+		if(pingSetupData->ipv4) {
+			main_ping(pingSetupData->rts, pingSetupData->fset, pingSetupData->sock4, pingSetupData->packet, pingSetupData->packlen);
+		} else {
+			main_ping(pingSetupData->rts, pingSetupData->fset, pingSetupData->sock6, pingSetupData->packet, pingSetupData->packlen);
+		}
+
 		refresh();
 
 		if (precise_timekeeping) {

@@ -62,6 +62,7 @@
 #include "iputils_common.h"
 #include "iputils_ni.h"
 #include "ping.h"
+#include <ncurses.h>
 
 #ifndef IPV6_FLOWLABEL_MGR
 # define IPV6_FLOWLABEL_MGR 32
@@ -98,7 +99,7 @@ unsigned int if_name2index(const char *ifname)
 
 /* return >= 0: exit with this code, < 0: go on to next addrinfo result */
 int ping6_run(struct ping_rts *rts, int argc, char **argv, struct addrinfo *ai,
-	      struct socket_st *sock)
+	      struct socket_st *sock, ping_setup_data *setup_data)
 {
 	int hold, packlen;
 	unsigned char *packet;
@@ -361,25 +362,17 @@ int ping6_run(struct ping_rts *rts, int argc, char **argv, struct addrinfo *ai,
 			error(2, errno, _("can't send flowinfo"));
 	}
 
-	printf(_("PING %s(%s) "), rts->hostname, pr_addr(rts, &rts->whereto6, sizeof rts->whereto6));
-	if (rts->flowlabel)
-		printf(_(", flow 0x%05x, "), (unsigned)ntohl(rts->flowlabel));
-	if (rts->device || rts->opt_strictsource) {
-		int saved_opt_numeric = rts->opt_numeric;
-
-		rts->opt_numeric = 1;
-		printf(_("from %s %s: "), pr_addr(rts, &rts->source6, sizeof rts->source6), rts->device ? rts->device : "");
-		rts->opt_numeric = saved_opt_numeric;
-	}
-	printf(_("%zu data bytes\n"), rts->datalen);
-
 	setup(rts, sock);
 
 	drop_capabilities();
+	//hold = main_ping(rts, &ping6_func_set, sock, packet, packlen);
 
-	hold = main_ping(rts, &ping6_func_set, sock, packet, packlen);
-	free(packet);
-	return hold;
+	setup_data->rts = rts;
+	setup_data->fset = &ping6_func_set;
+	setup_data->packet = packet;
+	setup_data->packlen = packlen;
+
+	return 0;
 }
 
 int print_icmp(uint8_t type, uint8_t code, uint32_t info)
@@ -525,9 +518,9 @@ int ping6_receive_error_msg(struct ping_rts *rts, socket_st *sock)
 			write_stdout("\bE", 2);
 		} else {
 			print_timestamp(rts);
-			printf(_("From %s icmp_seq=%u "), pr_addr(rts, sin6, sizeof *sin6), ntohs(icmph.icmp6_seq));
+			printw(_("From %s icmp_seq=%u "), pr_addr(rts, sin6, sizeof *sin6), ntohs(icmph.icmp6_seq));
 			print_icmp(e->ee_type, e->ee_code, e->ee_info);
-			putchar('\n');
+			printw("\n");
 			fflush(stdout);
 		}
 	}
@@ -632,7 +625,7 @@ void pr_echo_reply(uint8_t *_icmph, int cc __attribute__((__unused__)))
 {
 	struct icmp6_hdr *icmph = (struct icmp6_hdr *)_icmph;
 
-	printf(_(" icmp_seq=%u"), ntohs(icmph->icmp6_seq));
+	printw(_(" icmp_seq=%u"), ntohs(icmph->icmp6_seq));
 }
 
 static void putchar_safe(char c)
@@ -877,17 +870,17 @@ int ping6_parse_reply(struct ping_rts *rts, socket_st *sock,
 		if (!rts->opt_verbose || rts->uid)
 			return 1;
 		print_timestamp(rts);
-		printf(_("From %s: "), pr_addr(rts, from, sizeof *from));
+		printw(_("From %s: "), pr_addr(rts, from, sizeof *from));
 		print_icmp(icmph->icmp6_type, icmph->icmp6_code, ntohl(icmph->icmp6_mtu));
 	}
 
 	if (rts->opt_audible) {
-		putchar('\a');
+		printw("\a");
 		if (rts->opt_flood)
 			fflush(stdout);
 	}
 	if (!rts->opt_flood) {
-		putchar('\n');
+		printw("\n");
 		fflush(stdout);
 	}
 	return 0;

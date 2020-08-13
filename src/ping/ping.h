@@ -2,6 +2,7 @@
 #define IPUTILS_PING_H
 
 /* Includes */
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -250,6 +251,7 @@ struct ping_rts {
 extern struct ping_rts *global_rts;
 
 typedef struct ping_setup_data {
+	bool ipv4;
 	struct ping_rts *rts;
 	ping_func_set_st *fset;
 	socket_st *sock4;
@@ -261,6 +263,7 @@ typedef struct ping_setup_data {
 
 void parse_ping_args(int argc, char **argv, struct addrinfo *hints, struct ping_rts *rts, char **outpack_fill, char **target);
 int ping_initialize(int argc, char **argv, ping_setup_data* setup_data);
+void print_ping_header(bool ipv4, struct ping_rts *rts);
 void cleanup(ping_setup_data *setup_data);
 int ping4_run(struct ping_rts *rts, int argc, char **argv, struct addrinfo *ai, socket_st *sock, ping_setup_data *setup_data);
 
@@ -400,7 +403,7 @@ void fill(struct ping_rts *rts, char *patp, unsigned char *packet, size_t packet
 /* IPv6 */
 
 int ping6_run(struct ping_rts *rts, int argc, char **argv, struct addrinfo *ai,
-	      socket_st *sock);
+	      socket_st *sock, ping_setup_data *setup_data);
 void ping6_usage(unsigned from_ping);
 
 int ping6_send_probe(struct ping_rts *rts, socket_st *sockets, void *packet, unsigned packet_size);
