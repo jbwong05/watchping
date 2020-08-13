@@ -261,7 +261,6 @@ static void die(int notused __attribute__ ((__unused__)))
 {
 	if(pingSetupData) {
 		cleanup(pingSetupData);
-		free(pingSetupData);
 	}
 	do_exit(EXIT_SUCCESS);
 }
@@ -457,7 +456,8 @@ static void output_header(char *restrict command, double interval)
 	return;
 }
 
-int start_watch(struct ping_setup_data *pingSetupData, char *command) {
+int start_watch(struct ping_setup_data *pingSetupDataPtr, char *command) {
+	pingSetupData = pingSetupDataPtr;
 	int optc;
 	double interval = 2;
 	char *interval_string;

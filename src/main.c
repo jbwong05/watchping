@@ -268,5 +268,7 @@ int main(int argc, char *argv[]) {
     struct ping_setup_data pingSetupData;
     ping_initialize(&pingSetupData, hints, rts, target);
 
+    free(hints);
+
     return start_watch(&pingSetupData, command);
 }
