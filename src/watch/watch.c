@@ -33,7 +33,6 @@
 #include "nls.h"
 #include "ping.h"
 #include "strutils.h"
-#include "xalloc.h"
 #include <ctype.h>
 #include <errno.h>
 #include <getopt.h>
