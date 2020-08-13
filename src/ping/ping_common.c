@@ -576,7 +576,7 @@ int contains_pattern_in_payload(struct ping_rts *rts, uint8_t *ptr)
 	return 1;
 }
 
-int main_loop(struct ping_rts *rts, ping_func_set_st *fset, socket_st *sock,
+int main_ping(struct ping_rts *rts, ping_func_set_st *fset, socket_st *sock,
 	      uint8_t *packet, int packlen)
 {
 	char addrbuf[128];
@@ -594,151 +594,143 @@ int main_loop(struct ping_rts *rts, ping_func_set_st *fset, socket_st *sock,
 	if (rts->device || rts->opt_strictsource)
 		printw(_("from %s %s: "), inet_ntoa(rts->source.sin_addr), rts->device ? rts->device : "");
 	printw(_("%zu(%zu) bytes of data.\n"), rts->datalen, rts->datalen + 8 + rts->optlen + 20);
-	//for (;;) {
-		/* Check exit conditions. */
-		if (rts->exiting)
-			//break;
-			return (!rts->nreceived || (rts->deadline && rts->nreceived < rts->npackets));
-		if (rts->npackets && rts->nreceived + rts->nerrors >= rts->npackets)
-			//break;
-			return (!rts->nreceived || (rts->deadline && rts->nreceived < rts->npackets));
-		if (rts->deadline && rts->nerrors)
-			//break;
-			return (!rts->nreceived || (rts->deadline && rts->nreceived < rts->npackets));
-		/* Check for and do special actions. */
-		if (rts->status_snapshot)
-			status(rts);
 
-		/* Send probes scheduled to this time. */
-		do {
-			next = pinger(rts, fset, sock);
-			next = schedule_exit(rts, next);
-		} while (next <= 0);
+	/* Check exit conditions. */
+	if (rts->exiting)
+		return (!rts->nreceived || (rts->deadline && rts->nreceived < rts->npackets));
+	if (rts->npackets && rts->nreceived + rts->nerrors >= rts->npackets)
+		return (!rts->nreceived || (rts->deadline && rts->nreceived < rts->npackets));
+	if (rts->deadline && rts->nerrors)
+		return (!rts->nreceived || (rts->deadline && rts->nreceived < rts->npackets));
+	/* Check for and do special actions. */
+	if (rts->status_snapshot)
+		status(rts);
 
-		/* "next" is time to send next probe, if positive.
-		 * If next<=0 send now or as soon as possible. */
+	/* Send probes scheduled to this time. */
+	do {
+		next = pinger(rts, fset, sock);
+		next = schedule_exit(rts, next);
+	} while (next <= 0);
 
-		/* Technical part. Looks wicked. Could be dropped,
-		 * if everyone used the newest kernel. :-)
-		 * Its purpose is:
-		 * 1. Provide intervals less than resolution of scheduler.
-		 *    Solution: spinning.
-		 * 2. Avoid use of poll(), when recvmsg() can provide
-		 *    timed waiting (SO_RCVTIMEO). */
-		polling = 0;
-		recv_error = 0;
-		if (rts->opt_adaptive || rts->opt_flood_poll || next < SCHINT(rts->interval)) {
-			int recv_expected = in_flight(rts);
+	/* "next" is time to send next probe, if positive.
+	 * If next<=0 send now or as soon as possible. */
 
-			/* If we are here, recvmsg() is unable to wait for
-			 * required timeout. */
-			if (1000 % HZ == 0 ? next <= 1000 / HZ : (next < INT_MAX / HZ && next * HZ <= 1000)) {
-				/* Very short timeout... So, if we wait for
-				 * something, we sleep for MININTERVAL.
-				 * Otherwise, spin! */
-				if (recv_expected) {
-					next = MININTERVAL;
-				} else {
-					next = 0;
-					/* When spinning, no reasons to poll.
-					 * Use nonblocking recvmsg() instead. */
-					polling = MSG_DONTWAIT;
-					/* But yield yet. */
-					sched_yield();
-				}
-			}
+	/* Technical part. Looks wicked. Could be dropped,
+	 * if everyone used the newest kernel. :-)
+	 * Its purpose is:
+	 * 1. Provide intervals less than resolution of scheduler.
+	 *    Solution: spinning.
+	 * 2. Avoid use of poll(), when recvmsg() can provide
+	 *    timed waiting (SO_RCVTIMEO). */
+	polling = 0;
+	recv_error = 0;
+	if (rts->opt_adaptive || rts->opt_flood_poll || next < SCHINT(rts->interval)) {
+		int recv_expected = in_flight(rts);
 
-			if (!polling &&
-			    (rts->opt_adaptive || rts->opt_flood_poll || rts->interval)) {
-				struct pollfd pset;
-				pset.fd = sock->fd;
-				pset.events = POLLIN;
-				pset.revents = 0;
-				if (poll(&pset, 1, next) < 1 ||
-				    !(pset.revents & (POLLIN | POLLERR)))
-					//continue;
-					return (!rts->nreceived || (rts->deadline && rts->nreceived < rts->npackets));
+		/* If we are here, recvmsg() is unable to wait for
+		 * required timeout. */
+		if (1000 % HZ == 0 ? next <= 1000 / HZ : (next < INT_MAX / HZ && next * HZ <= 1000)) {
+			/* Very short timeout... So, if we wait for
+			 * something, we sleep for MININTERVAL.
+			 * Otherwise, spin! */
+			if (recv_expected) {
+				next = MININTERVAL;
+			} else {
+				next = 0;
+				/* When spinning, no reasons to poll.
+				 * Use nonblocking recvmsg() instead. */
 				polling = MSG_DONTWAIT;
-				recv_error = pset.revents & POLLERR;
+				/* But yield yet. */
+				sched_yield();
 			}
 		}
 
-		for (;;) {
-			struct timeval *recv_timep = NULL;
-			struct timeval recv_time;
-			int not_ours = 0; /* Raw socket can receive messages
-					   * destined to other running pings. */
-
-			iov.iov_len = packlen;
-			memset(&msg, 0, sizeof(msg));
-			msg.msg_name = addrbuf;
-			msg.msg_namelen = sizeof(addrbuf);
-			msg.msg_iov = &iov;
-			msg.msg_iovlen = 1;
-			msg.msg_control = ans_data;
-			msg.msg_controllen = sizeof(ans_data);
-
-			cc = recvmsg(sock->fd, &msg, polling);
+		if (!polling && (rts->opt_adaptive || rts->opt_flood_poll || rts->interval)) {
+			struct pollfd pset;
+			pset.fd = sock->fd;
+			pset.events = POLLIN;
+			pset.revents = 0;
+			if (poll(&pset, 1, next) < 1 || !(pset.revents & (POLLIN | POLLERR)))
+				return (!rts->nreceived || (rts->deadline && rts->nreceived < rts->npackets));
 			polling = MSG_DONTWAIT;
+			recv_error = pset.revents & POLLERR;
+		}
+	}
 
-			if (cc < 0) {
-				/* If there was a POLLERR and there is no packet
-				 * on the socket, try to read the error queue.
-				 * Otherwise, give up.
-				 */
-				if ((errno == EAGAIN && !recv_error) ||
-				    errno == EINTR)
+	for (;;) {
+		struct timeval *recv_timep = NULL;
+		struct timeval recv_time;
+		int not_ours = 0; /* Raw socket can receive messages
+				   			* destined to other running pings. */
+
+		iov.iov_len = packlen;
+		memset(&msg, 0, sizeof(msg));
+		msg.msg_name = addrbuf;
+		msg.msg_namelen = sizeof(addrbuf);
+		msg.msg_iov = &iov;
+		msg.msg_iovlen = 1;
+		msg.msg_control = ans_data;
+		msg.msg_controllen = sizeof(ans_data);
+
+		cc = recvmsg(sock->fd, &msg, polling);
+		polling = MSG_DONTWAIT;
+
+		if (cc < 0) {
+			/* If there was a POLLERR and there is no packet
+			 * on the socket, try to read the error queue.
+			 * Otherwise, give up.
+			 */
+			if ((errno == EAGAIN && !recv_error) ||
+			    errno == EINTR)
+				break;
+			recv_error = 0;
+			if (!fset->receive_error_msg(rts, sock)) {
+				if (errno) {
+					error(0, errno, "recvmsg");
 					break;
-				recv_error = 0;
-				if (!fset->receive_error_msg(rts, sock)) {
-					if (errno) {
-						error(0, errno, "recvmsg");
-						break;
-					}
-					not_ours = 1;
 				}
-			} else {
+				not_ours = 1;
+			}
+
+		} else {
 
 #ifdef SO_TIMESTAMP
-				struct cmsghdr *c;
+			struct cmsghdr *c;
 
-				for (c = CMSG_FIRSTHDR(&msg); c; c = CMSG_NXTHDR(&msg, c)) {
-					if (c->cmsg_level != SOL_SOCKET ||
-					    c->cmsg_type != SO_TIMESTAMP)
-						//continue;
-						return (!rts->nreceived || (rts->deadline && rts->nreceived < rts->npackets));
-					if (c->cmsg_len < CMSG_LEN(sizeof(struct timeval)))
-						//continue;
-						return (!rts->nreceived || (rts->deadline && rts->nreceived < rts->npackets));
-					recv_timep = (struct timeval *)CMSG_DATA(c);
-				}
+			for (c = CMSG_FIRSTHDR(&msg); c; c = CMSG_NXTHDR(&msg, c)) {
+				if (c->cmsg_level != SOL_SOCKET || c->cmsg_type != SO_TIMESTAMP)
+					return (!rts->nreceived || (rts->deadline && rts->nreceived < rts->npackets));
+				if (c->cmsg_len < CMSG_LEN(sizeof(struct timeval)))
+					return (!rts->nreceived || (rts->deadline && rts->nreceived < rts->npackets));
+				recv_timep = (struct timeval *)CMSG_DATA(c);
+			}
 #endif
 
-				if (rts->opt_latency || recv_timep == NULL) {
-					if (rts->opt_latency ||
-					    ioctl(sock->fd, SIOCGSTAMP, &recv_time))
-						gettimeofday(&recv_time, NULL);
-					recv_timep = &recv_time;
-				}
-
-				not_ours = fset->parse_reply(rts, sock, &msg, cc, addrbuf, recv_timep);
-				finish(rts);
+			if (rts->opt_latency || recv_timep == NULL) {
+				if (rts->opt_latency ||
+				    ioctl(sock->fd, SIOCGSTAMP, &recv_time))
+					gettimeofday(&recv_time, NULL);
+				recv_timep = &recv_time;
 			}
 
-			/* See? ... someone runs another ping on this host. */
-			if (not_ours && sock->socktype == SOCK_RAW)
-				fset->install_filter(rts, sock);
-
-			/* If nothing is in flight, "break" returns us to pinger. */
-			if (in_flight(rts) == 0)
-				break;
-
-			/* Otherwise, try to recvmsg() again. recvmsg()
-			 * is nonblocking after the first iteration, so that
-			 * if nothing is queued, it will receive EAGAIN
-			 * and return to pinger. */
+			not_ours = fset->parse_reply(rts, sock, &msg, cc, addrbuf, recv_timep);
+			finish(rts);
 		}
-	//}
+
+		/* See? ... someone runs another ping on this host. */
+		if (not_ours && sock->socktype == SOCK_RAW)
+			fset->install_filter(rts, sock);
+
+		/* If nothing is in flight, "break" returns us to pinger. */
+		if (in_flight(rts) == 0)
+			break;
+
+		/* Otherwise, try to recvmsg() again. recvmsg()
+		 * is nonblocking after the first iteration, so that
+		 * if nothing is queued, it will receive EAGAIN
+		 * and return to pinger. */
+	}
+
 	return (!rts->nreceived || (rts->deadline && rts->nreceived < rts->npackets));
 }
 

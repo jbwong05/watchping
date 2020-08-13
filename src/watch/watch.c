@@ -49,6 +49,7 @@
 #include <termios.h>
 #include <time.h>
 #include <unistd.h>
+#include "watch.h"
 #ifdef WITH_WATCH8BIT
 # define _XOPEN_SOURCE_EXTENDED 1
 # include <wchar.h>
@@ -456,230 +457,7 @@ static void output_header(char *restrict command, double interval)
 	return;
 }
 
-static int run_command(ping_setup_data *pingSetupData)
-{
-	FILE *p;
-	int x, y;
-	int oldeolseen = 1;
-	int pipefd[2];
-	pid_t child;
-	int exit_early = 0;
-	int status;
-
-	/* allocate pipes */
-	if (pipe(pipefd) < 0)
-		xerr(7, _("unable to create IPC pipes"));
-
-	/* flush stdout and stderr, since we're about to do fd stuff */
-	fflush(stdout);
-	fflush(stderr);
-
-	/* fork to prepare to run command */
-	child = fork();
-
-	if (child < 0) {		/* fork error */
-		xerr(2, _("unable to fork process"));
-	} else if (child == 0) {	/* in child */
-		close(pipefd[0]);		/* child doesn't need read side of pipe */
-		close(1);			/* prepare to replace stdout with pipe */
-		if (dup2(pipefd[1], 1) < 0) {	/* replace stdout with write side of pipe */
-			xerr(3, _("dup2 failed"));
-		}
-		close(pipefd[1]);		/* once duped, the write fd isn't needed */
-		dup2(1, 2);			/* stderr should default to stdout */
-
-		if (flags & WATCH_EXEC) {	/* pass command to exec instead of system */
-			/*if (execvp(command_argv[0], command_argv) == -1) {
-				xerr(4, _("unable to execute '%s'"),
-				     command_argv[0]);
-			}*/
-			printf("hello error\n");
-		} else {
-			//status = system(command);	/* watch manpage promises sh quoting */
-			//while(childRunning) {
-			//	printf("here");
-				status = main_loop(pingSetupData->rts, pingSetupData->fset, pingSetupData->sock4, pingSetupData->packet, pingSetupData->packlen);
-			//}
-			/* propagate command exit status as child exit status */
-			if (!WIFEXITED(status)) {	/* child exits nonzero if command does */
-				exit(EXIT_FAILURE);
-			} else {
-				exit(WEXITSTATUS(status));
-			}
-		}
-	}
-
-	/* otherwise, we're in parent */
-	close(pipefd[1]);	/* close write side of pipe */
-	if ((p = fdopen(pipefd[0], "r")) == NULL)
-		xerr(5, _("fdopen"));
-
-	reset_ansi();
-	for (y = show_title; y < height; y++) {
-		int eolseen = 0, tabpending = 0, tabwaspending = 0;
-		if (flags & WATCH_COLOR)
-			set_ansi_attribute(-1);
-#ifdef WITH_WATCH8BIT
-		wint_t carry = WEOF;
-#endif
-		for (x = 0; x < width; x++) {
-#ifdef WITH_WATCH8BIT
-			wint_t c = ' ';
-#else
-			int c = ' ';
-#endif
-			int attr = 0;
-
-			if (tabwaspending && (flags & WATCH_COLOR))
-				set_ansi_attribute(-1);
-			tabwaspending = 0;
-
-			if (!eolseen) {
-				/* if there is a tab pending, just
-				 * spit spaces until the next stop
-				 * instead of reading characters */
-				if (!tabpending)
-#ifdef WITH_WATCH8BIT
-					do {
-						if (carry == WEOF) {
-							c = my_getwc(p);
-						} else {
-							c = carry;
-							carry = WEOF;
-						}
-					} while (c != WEOF && !iswprint(c)
-						 && c < 128
-						 && wcwidth(c) == 0
-						 && c != L'\n'
-						 && c != L'\t'
-						 && (c != L'\033'
-						     || !(flags & WATCH_COLOR)));
-#else
-					do
-						c = getc(p);
-					while (c != EOF && !isprint(c)
-					       && c != '\n'
-					       && c != '\t'
-					       && (c != L'\033'
-						   || !(flags & WATCH_COLOR)));
-#endif
-				if (c == L'\033' && (flags & WATCH_COLOR)) {
-					x--;
-					process_ansi(p);
-					continue;
-				}
-				if (c == L'\n')
-					if (!oldeolseen && x == 0) {
-						x = -1;
-						continue;
-					} else
-						eolseen = 1;
-				else if (c == L'\t')
-					tabpending = 1;
-#ifdef WITH_WATCH8BIT
-				if (x == width - 1 && wcwidth(c) == 2) {
-					y++;
-					x = -1;		/* process this double-width */
-					carry = c;	/* character on the next line */
-					continue;	/* because it won't fit here */
-				}
-				if (c == WEOF || c == L'\n' || c == L'\t') {
-					c = L' ';
-					if (flags & WATCH_COLOR)
-						attrset(A_NORMAL);
-				}
-#else
-				if (c == EOF || c == '\n' || c == '\t') {
-					c = ' ';
-					if (flags & WATCH_COLOR)
-						attrset(A_NORMAL);
-				}
-#endif
-				if (tabpending && (((x + 1) % 8) == 0)) {
-					tabpending = 0;
-					tabwaspending = 1;
-				}
-			}
-			move(y, x);
-
-			if (!first_screen && !exit_early && (flags & WATCH_CHGEXIT)) {
-#ifdef WITH_WATCH8BIT
-				cchar_t oldc;
-				in_wch(&oldc);
-				exit_early = (wchar_t) c != oldc.chars[0];
-#else
-				chtype oldch = inch();
-				unsigned char oldc = oldch & A_CHARTEXT;
-				exit_early = (unsigned char)c != oldc;
-#endif
-			}
-			if (flags & WATCH_DIFF) {
-#ifdef WITH_WATCH8BIT
-				cchar_t oldc;
-				in_wch(&oldc);
-				attr = !first_screen
-				    && ((wchar_t) c != oldc.chars[0]
-					||
-					((flags & WATCH_CUMUL)
-					 && (oldc.attr & A_ATTRIBUTES)));
-#else
-				chtype oldch = inch();
-				unsigned char oldc = oldch & A_CHARTEXT;
-				attr = !first_screen
-				    && ((unsigned char)c != oldc
-					||
-					((flags & WATCH_CUMUL)
-					 && (oldch & A_ATTRIBUTES)));
-#endif
-			}
-			if (attr)
-				standout();
-#ifdef WITH_WATCH8BIT
-			addnwstr((wchar_t *) & c, 1);
-#else
-			addch(c);
-#endif
-			if (attr)
-				standend();
-#ifdef WITH_WATCH8BIT
-			if (wcwidth(c) == 0) {
-				x--;
-			}
-			if (wcwidth(c) == 2) {
-				x++;
-			}
-#endif
-		}
-		oldeolseen = eolseen;
-	}
-
-	fclose(p);
-
-
-	/* harvest child process and get status, propagated from command */
-	/*if (waitpid(child, &status, 0) < 0)
-		xerr(8, _("waitpid"));
-
-	// if child process exited in error, beep if option_beep is set 
-	if ((!WIFEXITED(status) || WEXITSTATUS(status))) {
-		if (flags & WATCH_BEEP)
-			beep();
-		if (flags & WATCH_ERREXIT) {
-			mvaddstr(height - 1, 0,
-				 _("command exit with a non-zero status, press a key to exit"));
-			refresh();
-			fgetc(stdin);
-			endwin();
-			exit(8);
-		}
-	}*/
-	first_screen = 0;
-	refresh();
-	return exit_early;
-}
-
-int main(int argc, char *argv[])
-{
+int start_watch(struct ping_setup_data *pingSetupData) {
 	int optc;
 	double interval = 2;
 	char *interval_string;
@@ -790,9 +568,6 @@ int main(int argc, char *argv[])
 		command[command_length] = '\0';
 	}*/
 
-	pingSetupData = (ping_setup_data*)malloc(sizeof(ping_setup_data));
-	ping_initialize(argc, argv, pingSetupData);
-
 #ifdef WITH_WATCH8BIT
 	/* convert to wide for printing purposes */
 	/*mbstowcs(NULL, NULL, 0); */
@@ -858,14 +633,8 @@ int main(int argc, char *argv[])
 			output_header("ping", interval);
 #endif	/* WITH_WATCH8BIT */
 
-		//if (run_command(pingSetupData))
-		//	break;
+		main_ping(pingSetupData->rts, pingSetupData->fset, pingSetupData->sock4, pingSetupData->packet, pingSetupData->packlen);
 		refresh();
-		//fflush(stdout);
-		//fflush(stderr);
-		//printf("here\n");
-		main_loop(pingSetupData->rts, pingSetupData->fset, pingSetupData->sock4, pingSetupData->packet, pingSetupData->packlen);
-		//printf("here2\n");
 
 		if (precise_timekeeping) {
 			watch_usec_t cur_time = get_time_usec();

@@ -259,7 +259,8 @@ typedef struct ping_setup_data {
 	struct addrinfo *result;
 } ping_setup_data;
 
-int ping_initialize(int argc, char **argv, ping_setup_data *setup_data);
+void parse_ping_args(int argc, char **argv, struct addrinfo *hints, struct ping_rts *rts, char **outpack_fill, char **target);
+int ping_initialize(int argc, char **argv, ping_setup_data* setup_data);
 void cleanup(ping_setup_data *setup_data);
 int ping4_run(struct ping_rts *rts, int argc, char **argv, struct addrinfo *ai, socket_st *sock, ping_setup_data *setup_data);
 
@@ -384,7 +385,7 @@ extern int pinger(struct ping_rts *rts, ping_func_set_st *fset, socket_st *sock)
 extern void sock_setbufs(struct ping_rts *rts, socket_st *, int alloc);
 extern void setup(struct ping_rts *rts, socket_st *);
 extern int contains_pattern_in_payload(struct ping_rts *rts, uint8_t *ptr);
-extern int main_loop(struct ping_rts *rts, ping_func_set_st *fset, socket_st*,
+extern int main_ping(struct ping_rts *rts, ping_func_set_st *fset, socket_st*,
 		     uint8_t *packet, int packlen);
 extern int finish(struct ping_rts *rts);
 extern void status(struct ping_rts *rts);

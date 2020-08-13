@@ -377,7 +377,7 @@ int ping6_run(struct ping_rts *rts, int argc, char **argv, struct addrinfo *ai,
 
 	drop_capabilities();
 
-	hold = main_loop(rts, &ping6_func_set, sock, packet, packlen);
+	hold = main_ping(rts, &ping6_func_set, sock, packet, packlen);
 	free(packet);
 	return hold;
 }

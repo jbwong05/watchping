@@ -258,9 +258,6 @@ static int parsetos(char *str)
 }
 
 int ping_initialize(int argc, char **argv, ping_setup_data* setup_data) {
-//int main(int argc, char **argv) {
-//	ping_setup_data setup_data_struct;
-//	ping_setup_data * setup_data = &setup_data_struct;
 	struct addrinfo hints = {
 		.ai_family = AF_UNSPEC,
 		.ai_protocol = IPPROTO_UDP,
@@ -601,12 +598,9 @@ int ping_initialize(int argc, char **argv, ping_setup_data* setup_data) {
 		assert(ai->ai_next);
 	}
 
-	// TODO: deal with memory
 	setup_data->result = result;
 	setup_data->sock4 = sock4;
 	setup_data->sock6 = sock6;
-	//freeaddrinfo(result);
-	//free(rts.outpack);
 
 	return ret_val;
 }
