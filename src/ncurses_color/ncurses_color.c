@@ -45,3 +45,13 @@ void set_packet_loss_color(float packet_loss) {
         set_color(HIGH_COLOR_INDEX);
     }
 }
+
+void set_deviation_color(long deviation) {
+    if(deviation < MEDIUM_DEVIATION_MIN) {
+        set_color(LOW_COLOR_INDEX);
+    } else if(deviation < HIGH_DEVIATION_MIN) {
+        set_color(MEDIUM_COLOR_INDEX);
+    } else {
+        set_color(HIGH_COLOR_INDEX);
+    }
+}

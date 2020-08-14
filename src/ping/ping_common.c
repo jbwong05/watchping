@@ -908,7 +908,9 @@ int finish(struct ping_rts *rts)
 		printw("%ld.%03ld", max_whole, max_decimal);
 		set_color(NORMAL_COLOR_INDEX);
 		printw("/");
+		set_deviation_color(mdev_whole);
 		printw("%ld.%03ld", mdev_whole, mdev_decimal);
+		set_color(NORMAL_COLOR_INDEX);
 		printw(" ms");
 
 		comma = ", ";
