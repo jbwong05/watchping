@@ -860,12 +860,15 @@ int finish(struct ping_rts *rts)
 #ifdef USE_IDN
 		setlocale(LC_ALL, "C");
 #endif
-		printw(_(", %g%% packet loss"),
-		       (float)((((long long)(rts->ntransmitted - rts->nreceived)) * 100.0) / rts->ntransmitted));
+		printw(", ");
+		float packet_loss = (float)((((long long)(rts->ntransmitted - rts->nreceived)) * 100.0) / rts->ntransmitted);
+		set_packet_loss_color(packet_loss);
+		printw("%g%%", packet_loss);
+		set_color(NORMAL_COLOR_INDEX);
+		printw(" packet loss");
 		printw(_(", time %ldms"), 1000 * tv.tv_sec + (tv.tv_usec + 500) / 1000);
 	}
 
-	//addch('\n');
 	printw("\n");
 
 	if (rts->nreceived && rts->timing) {
@@ -883,11 +886,31 @@ int finish(struct ping_rts *rts)
 
 		tmdev = llsqrt(tmvar);
 
-		printw(_("rtt min/avg/max/mdev = %ld.%03ld/%lu.%03ld/%ld.%03ld/%ld.%03ld ms"),
-		       (long)rts->tmin / 1000, (long)rts->tmin % 1000,
-		       (unsigned long)(tmavg / 1000), (long)(tmavg % 1000),
-		       (long)rts->tmax / 1000, (long)rts->tmax % 1000,
-		       (long)tmdev / 1000, (long)tmdev % 1000);
+		long min_whole = (long)rts->tmin / 1000;
+		long min_decimal = (long)rts->tmin % 1000;
+		unsigned long avg_whole = (unsigned long)(tmavg / 1000);
+		long avg_decimal = (long)(tmavg % 1000);
+		long max_whole = (long)rts->tmax / 1000;
+		long max_decimal = (long)rts->tmax % 1000;
+		long mdev_whole = (long)tmdev / 1000;
+		long mdev_decimal = (long)tmdev % 1000;
+
+		printw("rtt min/avg/max/mdev = ");
+		set_ping_color(min_whole);
+		printw("%ld.%03ld", min_whole, min_decimal);
+		set_color(NORMAL_COLOR_INDEX);
+		printw("/");
+		set_ping_color(avg_whole);
+		printw("%lu.%03ld", avg_whole, avg_decimal);
+		set_color(NORMAL_COLOR_INDEX);
+		printw("/");
+		set_ping_color(max_whole);
+		printw("%ld.%03ld", max_whole, max_decimal);
+		set_color(NORMAL_COLOR_INDEX);
+		printw("/");
+		printw("%ld.%03ld", mdev_whole, mdev_decimal);
+		printw(" ms");
+
 		comma = ", ";
 	}
 	if (rts->pipesize > 1) {

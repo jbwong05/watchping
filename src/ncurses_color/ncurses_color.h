@@ -1,12 +1,10 @@
 #include <ncurses.h>
 
-#define MEDIUM_MIN 50
-#define HIGH_MIN 100
+#define MEDIUM_PING_MIN 50
+#define HIGH_PING_MIN 100
 
-#define BRIGHT_WHITE 15
-#define BRIGHT_GREEN 10
-#define BRIGHT_YELLOW 14
-#define BRIGHT_RED 12
+#define MEDIUM_PACKET_LOSS_MIN 3
+#define HIGH_PACKET_LOSS_MIN 5
 
 #define NORMAL_COLOR_INDEX 1
 #define LOW_COLOR_INDEX 2
@@ -18,3 +16,4 @@ static int current_color;
 void initialize_colors();
 void set_color();
 void set_ping_color(long timeWhole);
+void set_packet_loss_color(float packet_loss);

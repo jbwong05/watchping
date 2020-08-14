@@ -1,5 +1,10 @@
 #include "ncurses_color.h"
 
+#define BRIGHT_WHITE 15
+#define BRIGHT_GREEN 10
+#define BRIGHT_YELLOW 14
+#define BRIGHT_RED 12
+
 void initialize_colors() {
     if(has_colors()){
 		start_color();
@@ -22,9 +27,19 @@ void set_color(int index) {
 }
 
 void set_ping_color(long timeWhole) {
-    if(timeWhole < MEDIUM_MIN) {
+    if(timeWhole < MEDIUM_PING_MIN) {
         set_color(LOW_COLOR_INDEX);
-    } else if(timeWhole < HIGH_MIN) {
+    } else if(timeWhole < HIGH_PING_MIN) {
+        set_color(MEDIUM_COLOR_INDEX);
+    } else {
+        set_color(HIGH_COLOR_INDEX);
+    }
+}
+
+void set_packet_loss_color(float packet_loss) {
+    if(packet_loss < MEDIUM_PACKET_LOSS_MIN) {
+        set_color(LOW_COLOR_INDEX);
+    } else if(packet_loss < HIGH_PACKET_LOSS_MIN) {
         set_color(MEDIUM_COLOR_INDEX);
     } else {
         set_color(HIGH_COLOR_INDEX);
