@@ -31,6 +31,7 @@
 #include "config.h"
 #include "fileutils.h"
 #include "nls.h"
+#include "ncurses_color.h"
 #include "ping.h"
 #include "strutils.h"
 #include <ctype.h>
@@ -323,6 +324,8 @@ int start_watch(struct ping_setup_data *pingSetupDataPtr, watch_options *watch_a
 	nonl();
 	noecho();
 	cbreak();
+	initialize_colors();
+	set_color(NORMAL_COLOR_INDEX);
 
 	if (watch_args->precise_timekeeping)
 		next_loop = get_time_usec();

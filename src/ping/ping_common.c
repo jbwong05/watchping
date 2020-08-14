@@ -31,6 +31,7 @@
  */
 #include "iputils_common.h"
 #include "ping.h"
+#include "ncurses_color.h"
 #include <ncurses.h>
 
 #ifndef _GNU_SOURCE
@@ -764,17 +765,34 @@ restamp:
 			return 1;
 		}
 		if (rts->timing) {
-			if (triptime >= 100000 - 50)
-				printw(_(" time=%ld ms"), (triptime + 500) / 1000);
-			else if (triptime >= 10000 - 5)
-				printw(_(" time=%ld.%01ld ms"), (triptime + 50) / 1000,
-				       ((triptime + 50) % 1000) / 100);
-			else if (triptime >= 1000)
-				printw(_(" time=%ld.%02ld ms"), (triptime + 5) / 1000,
-				       ((triptime + 5) % 1000) / 10);
-			else
-				printw(_(" time=%ld.%03ld ms"), triptime / 1000,
-				       triptime % 1000);
+			printw(" time=");
+			long timeWhole = 0;
+			long timeDecimal = 0;
+
+			if (triptime >= 100000 - 50) {
+				timeWhole = (triptime + 500) / 1000;
+				set_ping_color(timeWhole);
+				printw(_("%ld ms"), timeWhole);
+			} else if (triptime >= 10000 - 5) {
+				timeWhole = (triptime + 50) / 1000;
+				timeDecimal = ((triptime + 50) % 1000) / 100;
+				set_ping_color(timeWhole);
+				printw(_("%ld.%01ld ms"), timeWhole,
+				       timeDecimal);
+			} else if (triptime >= 1000) {
+				timeWhole = (triptime + 5) / 1000;
+				timeDecimal = ((triptime + 5) % 1000) / 10;
+				set_ping_color(timeWhole);
+				printw(_("%ld.%02ld ms"), timeWhole,
+				       timeDecimal);
+			} else {
+				timeWhole = triptime / 1000;
+				timeDecimal = triptime % 1000;
+				set_ping_color(timeWhole);
+				printw(_("%ld.%03ld ms"), timeWhole,
+				       timeDecimal);
+			}
+			set_color(NORMAL_COLOR_INDEX);
 		}
 		if (dupflag && (!multicast || rts->opt_verbose))
 			printw(_(" (DUP!)"));
