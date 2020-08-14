@@ -1,6 +1,6 @@
 #include <ncurses.h>
 
-#define MEDIUM_PING_MIN 50
+#define MEDIUM_PING_MIN 60
 #define HIGH_PING_MIN 100
 
 #define MEDIUM_PACKET_LOSS_MIN 3

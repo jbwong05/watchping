@@ -2,8 +2,8 @@
 
 #define BRIGHT_WHITE 15
 #define BRIGHT_GREEN 10
-#define BRIGHT_YELLOW 14
-#define BRIGHT_RED 12
+#define BRIGHT_YELLOW 11
+#define BRIGHT_RED 9
 
 void initialize_colors() {
     if(has_colors()){
