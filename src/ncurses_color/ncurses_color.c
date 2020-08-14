@@ -16,13 +16,15 @@ void initialize_colors() {
 }
 
 void set_color(int index) {
-    if(index == NORMAL_COLOR_INDEX || index == LOW_COLOR_INDEX || index == MEDIUM_COLOR_INDEX || index == HIGH_COLOR_INDEX) {
-        if(current_color) {
-            attroff(COLOR_PAIR(current_color));
+    if(has_colors()) {
+        if(index == NORMAL_COLOR_INDEX || index == LOW_COLOR_INDEX || index == MEDIUM_COLOR_INDEX || index == HIGH_COLOR_INDEX) {
+            if(current_color) {
+                attroff(COLOR_PAIR(current_color));
+            }
+    
+            attron(COLOR_PAIR(index));
+            current_color = index;
         }
-
-        attron(COLOR_PAIR(index));
-        current_color = index;
     }
 }
 
