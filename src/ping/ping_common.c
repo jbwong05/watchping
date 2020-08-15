@@ -926,9 +926,7 @@ int finish(struct ping_rts *rts)
 		printw(_("%sipg/ewma %d.%03d/%d.%03d ms"),
 		       comma, ipg / 1000, ipg % 1000, rts->rtt / 8000, (rts->rtt / 8) % 1000);
 	}
-	//addch('\n');
 	printw("\n");
-	//addch('\n');
 	printw("\n");
 	return (!rts->nreceived || (rts->deadline && rts->nreceived < rts->npackets));
 }
