@@ -182,7 +182,7 @@ struct ping_rts {
 	double last_sum;
 	double last_sum2;
 	long last_max;
-	long last_min; 
+	long last_min;
 
 	volatile int in_pr_addr;	/* pr_addr() is executing */
 	jmp_buf pr_addr_jmp;

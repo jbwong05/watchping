@@ -916,7 +916,16 @@ int finish(struct ping_rts *rts)
 		double tmdev;
 		long sum = (rts->use_last_packets) ? (rts->last_sum) : (rts->tsum);
 		long sum2 = (rts->use_last_packets) ? (rts->last_sum2) : (rts->tsum2);
-		long total = (rts->use_last_packets) ? (rts->num_last_packets) : (rts->nreceived + rts->nrepeats);
+		long total = 0;
+		if(rts->use_last_packets) {
+			if(rts->nreceived + rts->nrepeats < rts->num_last_packets) {
+				total = rts->nreceived + rts->nrepeats;
+			} else {
+				total = rts->num_last_packets;
+			}
+		} else {
+			total = rts->nreceived + rts->nrepeats;
+		}
 		long tmavg = (rts->use_last_packets) ? (rts->last_sum / total) : (sum / total);
 		long long tmvar;
 
