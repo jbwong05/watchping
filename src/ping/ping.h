@@ -175,6 +175,15 @@ struct ping_rts {
 	char *device;
 	int pmtudisc;
 
+	long num_last_packets;
+	long current_packet;
+	unsigned int use_last_packets;
+	long *last_triptimes;
+	double last_sum;
+	double last_sum2;
+	long last_max;
+	long last_min; 
+
 	volatile int in_pr_addr;	/* pr_addr() is executing */
 	jmp_buf pr_addr_jmp;
 

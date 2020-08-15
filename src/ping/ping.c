@@ -698,6 +698,9 @@ void cleanup(ping_setup_data *setup_data) {
 	free(setup_data->packet);
 	freeaddrinfo(setup_data->result);
 	free(setup_data->rts->outpack);
+	if(setup_data->rts->use_last_packets) {
+		free(setup_data->rts->last_triptimes);
+	}
 	free(setup_data->rts);
 	free(setup_data->sock4);
 	free(setup_data->sock6);

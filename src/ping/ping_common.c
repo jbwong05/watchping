@@ -711,6 +711,47 @@ restamp:
 			}
 		}
 		if (!csfailed) {
+			if(rts->use_last_packets) {
+				long oldest_triptime = (rts->last_triptimes)[rts->current_packet];
+
+				// Should change in future so that updating the local max/min doesn't take linear time
+				if(rts->last_max == oldest_triptime) {
+					long current_max = triptime;
+					for(int i = (rts->current_packet + 1) % rts->num_last_packets; i < rts->current_packet; i++) {
+						long current_triptime = (rts->last_triptimes)[i];
+						if(current_triptime > current_max) {
+							current_max = current_triptime;
+						}
+					}
+					rts->last_max = current_max;
+				} else {
+					if(triptime > rts->last_max) {
+						rts->last_max = triptime;
+					}
+				}
+
+				if(rts->last_min == oldest_triptime) {
+					long current_min = triptime;
+					for(int i = (rts->current_packet + 1) % rts->num_last_packets; i < rts->current_packet; i++) {
+						long current_triptime = (rts->last_triptimes)[i];
+						if(current_triptime < current_min) {
+							current_min = current_triptime;
+						}
+					}
+					rts->last_max = current_min;
+				} else {
+					if(triptime < rts->last_min) {
+						rts->last_min = triptime;
+					}
+				}
+
+				rts->last_sum -= oldest_triptime;
+				rts->last_sum += triptime;
+				rts->last_sum2 -= (double)((long long)oldest_triptime * (long long)oldest_triptime);
+				rts->last_sum2 += (double)((long long)triptime * (long long)triptime);
+				(rts->last_triptimes)[rts->current_packet] = triptime;
+				rts->current_packet = (rts->current_packet + 1) % rts->num_last_packets;				
+			}
 			rts->tsum += triptime;
 			rts->tsum2 += (double)((long long)triptime * (long long)triptime);
 			if (triptime < rts->tmin)
@@ -873,25 +914,27 @@ int finish(struct ping_rts *rts)
 
 	if (rts->nreceived && rts->timing) {
 		double tmdev;
-		long total = rts->nreceived + rts->nrepeats;
-		long tmavg = rts->tsum / total;
+		long sum = (rts->use_last_packets) ? (rts->last_sum) : (rts->tsum);
+		long sum2 = (rts->use_last_packets) ? (rts->last_sum2) : (rts->tsum2);
+		long total = (rts->use_last_packets) ? (rts->num_last_packets) : (rts->nreceived + rts->nrepeats);
+		long tmavg = (rts->use_last_packets) ? (rts->last_sum / total) : (sum / total);
 		long long tmvar;
 
-		if (rts->tsum < INT_MAX)
+		if (sum < INT_MAX)
 			/* This slightly clumsy computation order is important to avoid
 			 * integer rounding errors for small ping times. */
-			tmvar = (rts->tsum2 - ((rts->tsum * rts->tsum) / total)) / total;
+			tmvar = (sum2 - ((sum * sum) / total)) / total;
 		else
-			tmvar = (rts->tsum2 / total) - (tmavg * tmavg);
+			tmvar = (sum2 / total) - (tmavg * tmavg);
 
 		tmdev = llsqrt(tmvar);
 
-		long min_whole = (long)rts->tmin / 1000;
-		long min_decimal = (long)rts->tmin % 1000;
+		long min_whole = (rts->use_last_packets) ? ((long)rts->last_min / 1000) : (long)rts->tmin / 1000;
+		long min_decimal = (rts->use_last_packets) ? ((long)rts->last_min % 1000) : (long)rts->tmin % 1000;
 		unsigned long avg_whole = (unsigned long)(tmavg / 1000);
 		long avg_decimal = (long)(tmavg % 1000);
-		long max_whole = (long)rts->tmax / 1000;
-		long max_decimal = (long)rts->tmax % 1000;
+		long max_whole = (rts->use_last_packets) ? ((long)rts->last_max / 1000) : (long)rts->tmax / 1000;
+		long max_decimal = (rts->use_last_packets) ? ((long)rts->last_max % 1000) : (long)rts->tmax % 1000;
 		long mdev_whole = (long)tmdev / 1000;
 		long mdev_decimal = (long)tmdev % 1000;
 

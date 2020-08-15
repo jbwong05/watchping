@@ -29,6 +29,12 @@ void setup_structs(struct addrinfo *hints, struct ping_rts *rts) {
 	rts->source6.sin6_family = AF_INET6;
 	rts->ni.query = -1;
 	rts->ni.subject_type = -1;
+	rts->use_last_packets = 0;
+	rts->current_packet = 0;
+	rts->last_sum = 0;
+	rts->last_sum2 = 0;
+	rts->last_max = -1;
+	rts->last_min = LONG_MAX;
 }
 
 void parse_args(int argc, char *argv[], struct watch_options *watch_args, struct addrinfo *hints, struct ping_rts *rts, 
@@ -54,7 +60,7 @@ void parse_args(int argc, char *argv[], struct watch_options *watch_args, struct
 		hints->ai_family = AF_INET6;
 
 	/* Parse command line options */
-	while ((ch = getopt(argc, argv, "h?" "4bRT:" "6F:N:" "aABc:dDfHi:I:l:Lm:M:nOp:PqQ:rs:S:t:UvVw:W:")) != EOF) {
+	while ((ch = getopt(argc, argv, "h?" "4bRT:" "6F:N:" "aABc:C:dDfHi:I:l:Lm:M:nOp:PqQ:rs:S:t:UvVw:W:")) != EOF) {
 		switch(ch) {
 		/* IPv4 specific options */
 		case '4':
@@ -110,6 +116,11 @@ void parse_args(int argc, char *argv[], struct watch_options *watch_args, struct
 			break;
 		case 'c':
 			rts->npackets = strtol_or_err(optarg, _("invalid argument"), 1, LONG_MAX);
+			break;
+		case 'C':
+			rts->use_last_packets = 1;
+			rts->num_last_packets = strtol_or_err(optarg, _("invalid argument"), 1, LONG_MAX);
+			rts->last_triptimes = (long *)calloc(rts->num_last_packets, sizeof(long));
 			break;
 		case 'd':
 			rts->opt_so_debug = 1;
