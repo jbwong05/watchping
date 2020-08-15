@@ -795,7 +795,9 @@ restamp:
 		dupflag = 0;
 	}
 	rts->confirm = rts->confirm_flag;
-	rts->current_packet_status = (rts->current_packet_status + 1) % rts->num_last_packets;
+	if(rts->use_last_packets) {
+		rts->current_packet_status = (rts->current_packet_status + 1) % rts->num_last_packets;
+	}
 
 	if (rts->opt_quiet)
 		return 1;
