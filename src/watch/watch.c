@@ -342,6 +342,8 @@ int start_watch(struct ping_setup_data *pingSetupDataPtr, watch_options *watch_a
 			screen_size_changed = 0;
 		}
 
+		mvaddstr(0, 0, "");
+
 		if (watch_args->show_title)
 #ifdef WITH_WATCH8BIT
 			output_header(wcommand, wcommand_characters, interval);
