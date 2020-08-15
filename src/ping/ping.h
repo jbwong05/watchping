@@ -176,13 +176,17 @@ struct ping_rts {
 	int pmtudisc;
 
 	long num_last_packets;
-	long current_packet;
+	long current_triptime;
 	unsigned int use_last_packets;
 	long *last_triptimes;
 	double last_sum;
 	double last_sum2;
 	long last_max;
 	long last_min;
+	long last_transmitted;
+	long last_received;
+	unsigned int *last_packet_status;
+	long current_packet_status;
 
 	volatile int in_pr_addr;	/* pr_addr() is executing */
 	jmp_buf pr_addr_jmp;
@@ -367,6 +371,9 @@ static inline void acknowledge(struct ping_rts *rts, uint16_t seq)
 
 static inline void advance_ntransmitted(struct ping_rts *rts)
 {
+	if(rts->last_transmitted < rts->num_last_packets) {
+		rts->last_transmitted++;
+	}
 	rts->ntransmitted++;
 	/* Invalidate acked, if 16 bit seq overflows. */
 	if ((uint16_t)rts->ntransmitted - rts->acked > 0x7FFF)

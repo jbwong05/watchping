@@ -691,6 +691,14 @@ int gather_statistics(struct ping_rts *rts, uint8_t *icmph, int icmplen,
 	uint8_t *ptr = icmph + icmplen;
 
 	++rts->nreceived;
+	if(rts->use_last_packets) {
+		unsigned int oldest_packet_status = (rts->last_packet_status)[rts->current_packet_status];
+
+		if(!oldest_packet_status) {
+			++rts->last_received;
+			(rts->last_packet_status)[rts->current_packet_status] = 1;
+		}
+	}
 	if (!csfailed)
 		acknowledge(rts, seq);
 
@@ -712,12 +720,12 @@ restamp:
 		}
 		if (!csfailed) {
 			if(rts->use_last_packets) {
-				long oldest_triptime = (rts->last_triptimes)[rts->current_packet];
+				long oldest_triptime = (rts->last_triptimes)[rts->current_triptime];
 
 				// Should change in future so that updating the local max/min doesn't take linear time
 				if(rts->last_max == oldest_triptime) {
 					long current_max = triptime;
-					for(int i = (rts->current_packet + 1) % rts->num_last_packets; i < rts->current_packet; i++) {
+					for(int i = (rts->current_triptime + 1) % rts->num_last_packets; i < rts->current_triptime; i++) {
 						long current_triptime = (rts->last_triptimes)[i];
 						if(current_triptime > current_max) {
 							current_max = current_triptime;
@@ -732,7 +740,7 @@ restamp:
 
 				if(rts->last_min == oldest_triptime) {
 					long current_min = triptime;
-					for(int i = (rts->current_packet + 1) % rts->num_last_packets; i < rts->current_packet; i++) {
+					for(int i = (rts->current_triptime + 1) % rts->num_last_packets; i < rts->current_triptime; i++) {
 						long current_triptime = (rts->last_triptimes)[i];
 						if(current_triptime < current_min) {
 							current_min = current_triptime;
@@ -749,8 +757,8 @@ restamp:
 				rts->last_sum += triptime;
 				rts->last_sum2 -= (double)((long long)oldest_triptime * (long long)oldest_triptime);
 				rts->last_sum2 += (double)((long long)triptime * (long long)triptime);
-				(rts->last_triptimes)[rts->current_packet] = triptime;
-				rts->current_packet = (rts->current_packet + 1) % rts->num_last_packets;				
+				(rts->last_triptimes)[rts->current_triptime] = triptime;
+				rts->current_triptime = (rts->current_triptime + 1) % rts->num_last_packets;				
 			}
 			rts->tsum += triptime;
 			rts->tsum2 += (double)((long long)triptime * (long long)triptime);
@@ -770,15 +778,24 @@ restamp:
 	if (csfailed) {
 		++rts->nchecksum;
 		--rts->nreceived;
+		if(rts->use_last_packets) {
+			--rts->last_received;
+			(rts->last_packet_status)[rts->current_packet_status] = 0;
+		}
 	} else if (rcvd_test(rts, seq)) {
 		++rts->nrepeats;
 		--rts->nreceived;
+		if(rts->use_last_packets) {
+			--rts->last_received;
+			(rts->last_packet_status)[rts->current_packet_status] = 0;
+		}
 		dupflag = 1;
 	} else {
 		rcvd_set(rts, seq);
 		dupflag = 0;
 	}
 	rts->confirm = rts->confirm_flag;
+	rts->current_packet_status = (rts->current_packet_status + 1) % rts->num_last_packets;
 
 	if (rts->opt_quiet)
 		return 1;
@@ -902,7 +919,12 @@ int finish(struct ping_rts *rts)
 		setlocale(LC_ALL, "C");
 #endif
 		printw(", ");
-		float packet_loss = (float)((((long long)(rts->ntransmitted - rts->nreceived)) * 100.0) / rts->ntransmitted);
+		float packet_loss = 0;
+		if(rts->use_last_packets) {
+			packet_loss = (float)((((long long)(rts->last_transmitted - rts->last_received)) * 100.0) / rts->last_transmitted);
+		} else {
+			packet_loss = (float)((((long long)(rts->ntransmitted - rts->nreceived)) * 100.0) / rts->ntransmitted);
+		}
 		set_packet_loss_color(packet_loss);
 		printw("%g%%", packet_loss);
 		set_color(NORMAL_COLOR_INDEX);

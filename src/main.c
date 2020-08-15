@@ -30,11 +30,14 @@ void setup_structs(struct addrinfo *hints, struct ping_rts *rts) {
 	rts->ni.query = -1;
 	rts->ni.subject_type = -1;
 	rts->use_last_packets = 0;
-	rts->current_packet = 0;
+	rts->current_triptime = 0;
 	rts->last_sum = 0;
 	rts->last_sum2 = 0;
 	rts->last_max = -1;
 	rts->last_min = LONG_MAX;
+	rts->last_transmitted = 0;
+	rts->last_received = 0;
+	rts->current_packet_status = 0;
 }
 
 void parse_args(int argc, char *argv[], struct watch_options *watch_args, struct addrinfo *hints, struct ping_rts *rts, 
@@ -121,6 +124,7 @@ void parse_args(int argc, char *argv[], struct watch_options *watch_args, struct
 			rts->use_last_packets = 1;
 			rts->num_last_packets = strtol_or_err(optarg, _("invalid argument"), 1, LONG_MAX);
 			rts->last_triptimes = (long *)calloc(rts->num_last_packets, sizeof(long));
+			rts->last_packet_status = (unsigned int *)calloc(rts->num_last_packets, sizeof(unsigned int));
 			break;
 		case 'd':
 			rts->opt_so_debug = 1;
