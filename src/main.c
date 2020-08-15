@@ -124,7 +124,13 @@ void parse_args(int argc, char *argv[], struct watch_options *watch_args, struct
 			rts->use_last_packets = 1;
 			rts->num_last_packets = strtol_or_err(optarg, _("invalid argument"), 1, LONG_MAX);
 			rts->last_triptimes = (long *)calloc(rts->num_last_packets, sizeof(long));
+			if(!rts->last_triptimes) {
+				error(2, errno, _("memory allocation failed"));
+			}
 			rts->last_packet_status = (unsigned int *)calloc(rts->num_last_packets, sizeof(unsigned int));
+			if(!rts->last_packet_status) {
+				error(2, errno, _("memory allocation failed"));
+			}
 			break;
 		case 'd':
 			rts->opt_so_debug = 1;
@@ -279,7 +285,13 @@ void parse_args(int argc, char *argv[], struct watch_options *watch_args, struct
 
 int main(int argc, char *argv[]) {
     struct ping_rts *rts = (struct ping_rts *)calloc(1, sizeof(struct ping_rts));
+	if(!rts) {
+		error(2, errno, _("memory allocation failed"));
+	}
     struct addrinfo *hints = (struct addrinfo *)calloc(1, sizeof(struct addrinfo));
+	if(!hints) {
+		error(2, errno, _("memory allocation failed"));
+	}
     setup_structs(hints, rts);
 
     char command[COMMAND_BUFFER_SIZE];
