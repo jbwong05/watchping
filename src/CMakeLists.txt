@@ -1,32 +1,21 @@
 set(NCURSES_COLOR_SRCS ncurses_color/ncurses_color.c)
-set(IP_UTILS_COMMON_SRCS ping/iputils/common/iputils_common.c)
-set(IP_UTILS_MD5_SRCS ping/iputils/md5/md5.c)
-set(FILEUTILS_SRCS watch/fileutils/fileutils.c)
-set(STRUTILS_SRCS watch/strutils/strutils.c)
+set(IP_UTILS_SRCS ping/iputils/common/iputils_common.c ping/iputils/md5/md5.c)
 set(PING_SRCS ping/ping.c ping/ping_common.c ping/ping6_common.c ping/node_info.c)
-set(WATCH_SRCS watch/watch.c)
+set(WATCH_SRCS watch/watch.c watch/fileutils/fileutils.c watch/strutils/strutils.c)
 set(WATCHPING_SRCS ./main.c)
 
 add_library(ncursescolor ${NCURSES_COLOR_SRCS})
 target_link_libraries(ncursescolor ${NCURSES_LIBRARY})
 
-add_library(iputilscommon ${IP_UTILS_COMMON_SRCS})
-
-add_library(iputilsmd5 ${IP_UTILS_MD5_SRCS})
+add_library(iputils ${IP_UTILS_SRCS})
 
 add_library(ping ${PING_SRCS})
 target_include_directories(ping PUBLIC ncurses_color ping/iputils/include ping/iputils/common ping/iputils/md5)
-target_link_libraries(ping ncursescolor iputilscommon iputilsmd5 ${RESOLV_LIBRARY} ${NCURSES_LIBRARY})
-
-add_library(fileutils ${FILEUTILS_SRCS})
-target_include_directories(fileutils PUBLIC watch/include)
-
-add_library(strutils ${STRUTILS_SRCS})
-target_include_directories(strutils PUBLIC watch/include)
+target_link_libraries(ping ncursescolor iputils ${RESOLV_LIBRARY} ${NCURSES_LIBRARY})
 
 add_library(watch ${WATCH_SRCS})
 target_include_directories(watch PUBLIC ncurses_color watch/include watch/fileutils watch/strutils ping)
-target_link_libraries(watch ${NCURSES_LIBRARY} ncursescolor fileutils strutils ping)
+target_link_libraries(watch ${NCURSES_LIBRARY} ncursescolor ping)
 
 add_executable(watchping ${WATCHPING_SRCS})
 target_include_directories(watchping PUBLIC ping watch)
