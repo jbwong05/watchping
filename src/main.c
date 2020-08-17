@@ -49,7 +49,7 @@ void parse_args(int argc, char *argv[], struct watch_options *watch_args, struct
 		hints->ai_family = AF_INET6;
 
 	/* Parse command line options */
-	while ((ch = getopt(argc, argv, "h?" "4bRT:" "6F:N:" "aABc:dDfHi:I:l:Lm:M:nOp:PqQ:rs:S:t:UvVw:W:")) != EOF) {
+	while ((ch = getopt(argc, argv, "h?" "4bRT:" "6F:N:" "aABdDfHi:I:l:Lm:M:nOp:PqQ:rs:S:t:UvVw:W:")) != EOF) {
 		switch(ch) {
 		/* IPv4 specific options */
 		case '4':
@@ -112,10 +112,6 @@ void parse_args(int argc, char *argv[], struct watch_options *watch_args, struct
 		case 'B':
 			rts->opt_strictsource = 1;
 			snprintf(current_arg, COMMAND_BUFFER_SIZE, " -B");
-			break;
-		case 'c':
-			rts->npackets = strtol_or_err(optarg, _("invalid argument"), 1, LONG_MAX);
-			snprintf(current_arg, COMMAND_BUFFER_SIZE, " -c %s", optarg);
 			break;
 		case 'd':
 			rts->opt_so_debug = 1;

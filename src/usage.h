@@ -9,7 +9,6 @@ void print_usage(void) {
 		"  -a                 use audible ping\n"
 		"  -A                 use adaptive ping\n"
 		"  -B                 sticky source address\n"
-		"  -c <count>         stop after <count> replies\n"
 		"  -D                 print timestamps\n"
 		"  -d                 use SO_DEBUG socket option\n"
 		"  -f                 flood ping\n"
