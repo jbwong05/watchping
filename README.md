@@ -13,7 +13,6 @@ Options:
   -a                 use audible ping
   -A                 use adaptive ping
   -B                 sticky source address
-  -c <count>         stop after <count> replies
   -D                 print timestamps
   -d                 use SO_DEBUG socket option
   -f                 flood ping
