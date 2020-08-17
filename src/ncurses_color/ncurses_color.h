@@ -17,7 +17,7 @@
 static int current_color;
 
 void initialize_colors();
-void set_color();
+void set_color(int index);
 void set_ping_color(long timeWhole);
 void set_packet_loss_color(float packet_loss);
 void set_deviation_color(long deviation);
