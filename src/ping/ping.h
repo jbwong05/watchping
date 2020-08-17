@@ -346,8 +346,6 @@ extern int __schedule_exit(int next);
 
 static inline int schedule_exit(struct ping_rts *rts, int next)
 {
-	if (rts->npackets && rts->ntransmitted >= rts->npackets && !rts->deadline)
-		next = __schedule_exit(next);
 	return next;
 }
 

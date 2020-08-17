@@ -265,10 +265,6 @@ int pinger(struct ping_rts *rts, ping_func_set_st *fset, socket_st *sock)
 	static int tokens;
 	int i;
 
-	/* Have we already sent enough? If we have, return an arbitrary positive value. */
-	if (rts->exiting || (rts->npackets && rts->ntransmitted >= rts->npackets && !rts->deadline))
-		return 1000;
-
 	/* Check that packets < rate*time + preload */
 	if (rts->cur_time.tv_sec == 0) {
 		gettimeofday(&rts->cur_time, NULL);
@@ -545,11 +541,9 @@ int main_ping(struct ping_rts *rts, ping_func_set_st *fset, socket_st *sock,
 
 	/* Check exit conditions. */
 	if (rts->exiting)
-		return (!rts->nreceived || (rts->deadline && rts->nreceived < rts->npackets));
-	if (rts->npackets && rts->nreceived + rts->nerrors >= rts->npackets)
-		return (!rts->nreceived || (rts->deadline && rts->nreceived < rts->npackets));
+		return !rts->nreceived || rts->deadline;
 	if (rts->deadline && rts->nerrors)
-		return (!rts->nreceived || (rts->deadline && rts->nreceived < rts->npackets));
+		return !rts->nreceived || rts->deadline;
 	/* Check for and do special actions. */
 	if (rts->status_snapshot)
 		status(rts);
@@ -599,7 +593,7 @@ int main_ping(struct ping_rts *rts, ping_func_set_st *fset, socket_st *sock,
 			pset.events = POLLIN;
 			pset.revents = 0;
 			if (poll(&pset, 1, next) < 1 || !(pset.revents & (POLLIN | POLLERR)))
-				return (!rts->nreceived || (rts->deadline && rts->nreceived < rts->npackets));
+				return !rts->nreceived || rts->deadline;
 			polling = MSG_DONTWAIT;
 			recv_error = pset.revents & POLLERR;
 		}
@@ -678,7 +672,7 @@ int main_ping(struct ping_rts *rts, ping_func_set_st *fset, socket_st *sock,
 		 * and return to pinger. */
 	}
 	finish(rts);
-	return (!rts->nreceived || (rts->deadline && rts->nreceived < rts->npackets));
+	return !rts->nreceived || rts->deadline;
 }
 
 int gather_statistics(struct ping_rts *rts, uint8_t *icmph, int icmplen,
@@ -1004,7 +998,7 @@ int finish(struct ping_rts *rts)
 	}
 	printw("\n");
 	printw("\n");
-	return (!rts->nreceived || (rts->deadline && rts->nreceived < rts->npackets));
+	return !rts->nreceived || rts->deadline;
 }
 
 void status(struct ping_rts *rts)
