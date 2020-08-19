@@ -740,7 +740,7 @@ restamp:
 							current_min = current_triptime;
 						}
 					}
-					rts->last_max = current_min;
+					rts->last_min = current_min;
 				} else {
 					if(triptime < rts->last_min) {
 						rts->last_min = triptime;
