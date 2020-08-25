@@ -62,7 +62,7 @@
 #include "iputils_common.h"
 #include "iputils_ni.h"
 #include "ping.h"
-#include <ncurses.h>
+#include <ncursesw/ncurses.h>
 
 #ifndef IPV6_FLOWLABEL_MGR
 # define IPV6_FLOWLABEL_MGR 32

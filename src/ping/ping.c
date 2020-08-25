@@ -55,7 +55,7 @@
 
 #include "iputils_common.h"
 #include "ping.h"
-#include <ncurses.h>
+#include <ncursesw/ncurses.h>
 
 #include <assert.h>
 #include <netinet/ip.h>

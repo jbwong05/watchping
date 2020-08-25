@@ -1,4 +1,4 @@
-#include <ncurses.h>
+#include <ncursesw/ncurses.h>
 
 #define MEDIUM_PING_MIN 60
 #define HIGH_PING_MIN 100
