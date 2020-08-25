@@ -32,7 +32,7 @@
 #include "iputils_common.h"
 #include "ping.h"
 #include "ncurses_color.h"
-#include <ncurses.h>
+#include <ncursesw/ncurses.h>
 
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE

@@ -266,7 +266,7 @@ void parse_args(int argc, char *argv[], struct watch_options *watch_args, struct
 		}
 		
 		if(current_arg) {
-			strncat(watch_args->command, current_arg, strlen(current_arg));
+			strncat(watch_args->command, current_arg, COMMAND_BUFFER_SIZE - 1);
 			current_arg[0] = 0;
 		}
 	}
@@ -281,7 +281,7 @@ void parse_args(int argc, char *argv[], struct watch_options *watch_args, struct
 
 	*target = argv[argc - 1];
 	strncat(watch_args->command, " ", 1);
-	strncat(watch_args->command, *target, strlen(*target));
+	strncat(watch_args->command, *target, COMMAND_BUFFER_SIZE - 1);
 
 	rts->outpack = malloc(rts->datalen + 28);
 	if (!rts->outpack)

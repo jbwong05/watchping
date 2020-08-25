@@ -55,7 +55,7 @@
 # include <wchar.h>
 # include <wctype.h>
 #endif	/* WITH_WATCH8BIT */
-#include <ncurses.h>
+#include <ncursesw/ncurses.h>
 
 #ifdef FORCE_8BIT
 # undef isprint
