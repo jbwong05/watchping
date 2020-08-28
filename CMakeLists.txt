@@ -11,7 +11,7 @@ message(STATUS "resolv library - ${RESOLV_LIBRARY}")
 
 find_library(NCURSES_LIBRARY NAMES ncursesw libncursesw)
 if(NOT NCURSES_LIBRARY)
-  message(FATAL_ERROR "ncurses library not found")
+  message(FATAL_ERROR "ncursesw library not found")
 endif()
 message(STATUS "ncursesw library - ${NCURSES_LIBRARY}")
 

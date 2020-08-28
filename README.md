@@ -1,7 +1,7 @@
 # watchping
 
 ## Description
-A simple combination of the [watch](https://linux.die.net/man/1/watch) and [ping](https://linux.die.net/man/8/ping) utilities that allows me to monitor my unstable internet connection. [watchping](https://github.com/jbwong05/watchping/tree/master) is similar to running `watch ping -c 1 <addr>` except that the ping statistics actually update after every interval.
+A simple combination of the [watch](https://linux.die.net/man/1/watch) and [ping](https://linux.die.net/man/8/ping) utilities that allows me to monitor my unstable internet connection. [watchping](https://github.com/jbwong05/watchping/tree/master) is similar to running `watch ping -c 1 <destination>` except that the ping statistics actually update after every interval.
 
 ## Usage
 ```
@@ -53,7 +53,7 @@ IPv6 options:
 
 ## Dependencies
 * libresolv
-* libncurses
+* libncursesw
 
 ## Building from sources
 ```
